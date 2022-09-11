@@ -26,9 +26,10 @@ object ABC extends ZIOAppDefault {
     _ <- login()
     secretKey <- retrieveKey(prepareKey())
     mechanism = Mechanism.get(PKCS11Constants.CKM_AES_ECB)
-    toEncrypt <- ZIO.fromEither(Array16Bytes.fromString("hehe"))
-    encryption <- encrypt(toEncrypt, secretKey, mechanism)
-    decryption <- decrypt(encryption, secretKey, mechanism)
+    data = "abcdefghi"
+    bytes = data.getBytes("utf-8")
+    encryption <- encrypt(bytes, secretKey, mechanism)
+    decryption <- decrypt(encryption, secretKey, mechanism, padding(data.length).length)
     _ <- zio.Console.printLine(new String(decryption))
   } yield ()
 

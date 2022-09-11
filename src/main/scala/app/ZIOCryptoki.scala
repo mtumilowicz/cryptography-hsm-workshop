@@ -20,28 +20,30 @@ object ZIOCryptoki {
     }
   } yield result
 
-  def encrypt(data: Array16Bytes,
+  def encrypt(data: Array[Byte],
               encryptionKey: Key,
               encryptionMechanism: Mechanism): RIO[Session, Array[Byte]] = for {
     session <- ZIO.service[Session]
     _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(encryptionMechanism.isSingleOperationEncryptDecryptMechanism || encryptionMechanism.isFullEncryptDecryptMechanism)
     _ <- ZIO.attempt(session.encryptInit(encryptionMechanism, encryptionKey))
-    len = 16
     iv = padding(data.length)
-    outBuffer = Array.ofDim[Byte](len)
-    _ <- ZIO.attempt(session.encrypt(iv ++ data.value, 0, len, outBuffer, 0, len))
+    toEncrypt = iv ++ data
+    chunkSize = 16 + (toEncrypt.length / 16) * 16
+    outBuffer = Array.ofDim[Byte](toEncrypt.length)
+    _ <- ZIO.attempt(session.encrypt(toEncrypt, 0, chunkSize, outBuffer, 0, chunkSize))
   } yield outBuffer
 
   def decrypt(data: Array[Byte],
               decryptionKey: Key,
-              decryptionMechanism: Mechanism): RIO[Session, Array[Byte]] = for {
+              decryptionMechanism: Mechanism,
+              paddingFirstBytes: Int): RIO[Session, Array[Byte]] = for {
     session <- ZIO.service[Session]
     _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(decryptionMechanism.isSingleOperationEncryptDecryptMechanism || decryptionMechanism.isFullEncryptDecryptMechanism)
     _ <- ZIO.attempt(session.decryptInit(decryptionMechanism, decryptionKey))
-    len = 16
-    outBuffer = Array.ofDim[Byte](len)
-    _ <- ZIO.attempt(session.decrypt(data, 0, len, outBuffer, 0, len))
-  } yield outBuffer.slice(5, Integer.parseInt(outBuffer.take(5).mkString, 2) + 5)
+    chunkSize = 16 + (data.length / 16) * 16
+    outBuffer = Array.ofDim[Byte](chunkSize)
+    _ <- ZIO.attempt(session.decrypt(data, 0, chunkSize, outBuffer, 0, chunkSize))
+  } yield outBuffer.slice(paddingFirstBytes, Integer.parseInt(outBuffer.take(paddingFirstBytes).mkString, 2) + paddingFirstBytes)
 
   def sign(data: Array[Byte],
            signKey: Key,
