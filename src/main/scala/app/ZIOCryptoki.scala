@@ -73,7 +73,6 @@ object ZIOCryptoki {
     token <- ZIO.attempt(slot.getToken)
     session <- ZIO.attempt(token.openSession(Token.SessionType.SERIAL_SESSION,
       Token.SessionReadWriteBehavior.RW_SESSION, null, null))
-    _ <- ZIO.attempt(session.login(Session.UserType.USER, userPin))
   } yield session
 
   def initiateSession2(userPin: Array[Char], slotNo: Int): RIO[Module with Scope, Session] =

@@ -12,8 +12,6 @@ object ABCTest extends ZIOSpecDefault {
     test("hehe2")(
       check(Gen.stringBounded(1, 10)(Gen.alphaNumericChar)) { data =>
         for {
-          _ <- logout()
-          _ <- login()
           secretKey <- retrieveKey(prepareKey())
           mechanism = Mechanism.get(PKCS11Constants.CKM_AES_ECB)
           bytes = data.getBytes("utf-8")
@@ -23,5 +21,6 @@ object ABCTest extends ZIOSpecDefault {
       }
     )
   ).provideSome(ZLayer.fromZIO(initiateSession2("1989".toCharArray, 0)),
+    ZLayer.fromZIO(login()),
     ZLayer.fromZIO(loadModule()))
 }
