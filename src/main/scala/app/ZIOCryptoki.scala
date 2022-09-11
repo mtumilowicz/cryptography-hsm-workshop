@@ -91,7 +91,7 @@ object ZIOCryptoki {
     _ <- ZIO.attempt(session.logout())
   } yield ()
 
-  def ceil16(v: Int): Int = {
+  def padded16(v: Int): Int = {
     16 + (v / 16) * 16
   }
 
