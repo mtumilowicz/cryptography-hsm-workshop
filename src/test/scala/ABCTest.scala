@@ -1,20 +1,27 @@
-import zio.{Random, Scope}
-import zio.test._
+import app.ABC.prepareKey
+import app.ZIOCryptoki._
+import iaik.pkcs.pkcs11.Mechanism
+import iaik.pkcs.pkcs11.wrapper.PKCS11Constants
+import zio.ZLayer
 import zio.test.Assertion._
+import zio.test._
 
 object ABCTest extends ZIOSpecDefault {
 
-  val genTicker: Gen[Random with Sized, String] =
-    Gen.asciiString
-
-  override def spec: Spec[TestEnvironment with Scope, Any] = {
-    suite("huhu")(
-      test("hehe") {
-        assert(5 + 5)(equalTo(10))
-      },
-      test("hehe2") {
-        assert(5 + 5)(equalTo(10))
+  def spec = suite("Add Spec")(
+    test("hehe2")(
+      check(Gen.stringBounded(1, 10)(Gen.alphaNumericChar)) { data =>
+        for {
+          _ <- logout()
+          _ <- login()
+          secretKey <- retrieveKey(prepareKey())
+          mechanism = Mechanism.get(PKCS11Constants.CKM_AES_ECB)
+          bytes = data.getBytes("utf-8")
+          encryption <- encrypt(bytes, secretKey, mechanism)
+          decryption <- decrypt(encryption, secretKey, mechanism, padding(data.length).length)
+        } yield assert(bytes)(equalTo(decryption))
       }
     )
-  }
+  ).provideSome(ZLayer.fromZIO(initiateSession2("1989".toCharArray, 0)),
+    ZLayer.fromZIO(loadModule()))
 }
