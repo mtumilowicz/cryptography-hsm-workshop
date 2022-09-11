@@ -5,6 +5,8 @@ import iaik.pkcs.pkcs11.wrapper.PKCS11Constants
 import iaik.pkcs.pkcs11.{Mechanism, Module, Session, Token}
 import zio.{RIO, Scope, Task, ZIO, ZIOAppDefault, ZLayer}
 
+import java.nio.ByteBuffer
+
 object ZIOCryptoki {
 
   def retrieveKey(keyTemplate: Key): RIO[Session, Key] = for {
@@ -18,16 +20,16 @@ object ZIOCryptoki {
     }
   } yield result
 
-  def encrypt(data: Array[Byte],
+  def encrypt(data: Array16Bytes,
               encryptionKey: Key,
               encryptionMechanism: Mechanism): RIO[Session, Array[Byte]] = for {
     session <- ZIO.service[Session]
     _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(encryptionMechanism.isSingleOperationEncryptDecryptMechanism || encryptionMechanism.isFullEncryptDecryptMechanism)
     _ <- ZIO.attempt(session.encryptInit(encryptionMechanism, encryptionKey))
     len = 16
-    iv = Array(data.length.toByte)
+    iv = padding(data.length)
     outBuffer = Array.ofDim[Byte](len)
-    _ <- ZIO.attempt(session.encrypt(iv ++ data, 0, len, outBuffer, 0, len))
+    _ <- ZIO.attempt(session.encrypt(iv ++ data.value, 0, len, outBuffer, 0, len))
   } yield outBuffer
 
   def decrypt(data: Array[Byte],
@@ -39,7 +41,7 @@ object ZIOCryptoki {
     len = 16
     outBuffer = Array.ofDim[Byte](len)
     _ <- ZIO.attempt(session.decrypt(data, 0, len, outBuffer, 0, len))
-  } yield outBuffer.slice(1, outBuffer(0).toInt + 1)
+  } yield outBuffer.slice(5, Integer.parseInt(outBuffer.take(5).mkString, 2) + 5)
 
   def sign(data: Array[Byte],
            signKey: Key,
@@ -91,8 +93,8 @@ object ZIOCryptoki {
     _ <- ZIO.attempt(session.logout())
   } yield ()
 
-  def padded16(v: Int): Int = {
-    16 + (v / 16) * 16
+  def padding(i: Int): Array[Byte] = {
+    Integer.toBinaryString((1 << 5) | i).map(_ - '0').map(_.toByte).drop(1).toArray
   }
 
 }

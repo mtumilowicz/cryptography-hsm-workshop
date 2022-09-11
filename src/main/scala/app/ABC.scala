@@ -8,7 +8,6 @@ import ZIOCryptoki._
 
 object ABC extends ZIOAppDefault {
 
-  // initiateSession2("1989".toCharArray, 0)
   override def run: ZIO[Any, Any, Any] =
     program.provide(
       ZLayer.fromZIO(initiateSession2("1989".toCharArray, 0)),
@@ -27,7 +26,8 @@ object ABC extends ZIOAppDefault {
     _ <- login()
     secretKey <- retrieveKey(prepareKey())
     mechanism = Mechanism.get(PKCS11Constants.CKM_AES_ECB)
-    encryption <- encrypt("hehe".getBytes("utf-8"), secretKey, mechanism)
+    toEncrypt <- ZIO.fromEither(Array16Bytes.fromString("hehe"))
+    encryption <- encrypt(toEncrypt, secretKey, mechanism)
     decryption <- decrypt(encryption, secretKey, mechanism)
     _ <- zio.Console.printLine(new String(decryption))
   } yield ()
