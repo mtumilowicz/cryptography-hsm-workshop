@@ -3,9 +3,7 @@ package app
 import iaik.pkcs.pkcs11.objects.Key
 import iaik.pkcs.pkcs11.wrapper.PKCS11Constants
 import iaik.pkcs.pkcs11.{Mechanism, Module, Session, Token}
-import zio.{RIO, Scope, Task, ZIO, ZIOAppDefault, ZLayer}
-
-import java.nio.ByteBuffer
+import zio.{RIO, Scope, Task, ZIO}
 
 object ZIOCryptoki {
 
@@ -20,6 +18,18 @@ object ZIOCryptoki {
     }
   } yield result
 
+  def encrypt2(keyAlias: String, dataToEncrypt: String, userPin: String):
+  ZIO[Session, Throwable, Array[Byte]] = ZIO.scoped {
+    for {
+      _ <- login(userPin)
+      key = prepareKey(keyAlias)
+      secretKey <- retrieveKey(key)
+      mechanism = Mechanism.get(PKCS11Constants.CKM_AES_ECB)
+      bytes = dataToEncrypt.getBytes("utf-8")
+      encryption <- encrypt(bytes, secretKey, mechanism)
+    } yield encryption
+  }
+
   def encrypt(data: Array[Byte],
               encryptionKey: Key,
               encryptionMechanism: Mechanism): RIO[Session, Array[Byte]] = for {
@@ -32,6 +42,17 @@ object ZIOCryptoki {
     outBuffer = Array.ofDim[Byte](toEncrypt.length)
     _ <- ZIO.attempt(session.encrypt(toEncrypt, 0, chunkSize, outBuffer, 0, chunkSize))
   } yield outBuffer
+
+  def decrypt2(keyAlias: String, dataToDecrypt: Array[Byte], userPin: String):
+  ZIO[Session, Throwable, Array[Byte]] = ZIO.scoped {
+    for {
+      _ <- login(userPin)
+      key = prepareKey(keyAlias)
+      secretKey <- retrieveKey(key)
+      mechanism = Mechanism.get(PKCS11Constants.CKM_AES_ECB)
+      decryption <- decrypt(dataToDecrypt, secretKey, mechanism, padding(dataToDecrypt.length).length)
+    } yield decryption
+  }
 
   def decrypt(data: Array[Byte],
               decryptionKey: Key,
@@ -65,28 +86,28 @@ object ZIOCryptoki {
   } yield true
 
 
-  def initiateSession(userPin: Array[Char], slotNo: Int): RIO[Module, Session] = for {
+  def initiateSession(slotListNo: Int): RIO[Module with Scope, Session] = for {
     pkcs11Module <- ZIO.service[Module]
-    slotsWithTokens <- ZIO.attempt(pkcs11Module.getSlotList(Module.SlotRequirement.TOKEN_PRESENT))
-    _ <- ZIO.fail(new RuntimeException("Session initiation error")).unless(slotsWithTokens.length > slotNo)
-    slot = slotsWithTokens(slotNo)
+    slotList <- ZIO.attempt(pkcs11Module.getSlotList(Module.SlotRequirement.TOKEN_PRESENT))
+    _ <- ZIO.fail(new RuntimeException("Session initiation error")).unless(slotList.length > slotListNo)
+    slot = slotList(slotListNo)
     token <- ZIO.attempt(slot.getToken)
-    session <- ZIO.attempt(token.openSession(Token.SessionType.SERIAL_SESSION,
-      Token.SessionReadWriteBehavior.RW_SESSION, null, null))
+    session <- ZIO.acquireRelease(readOnlySession(token))(session => ZIO.attempt(session.closeSession()).orDie)
   } yield session
 
-  def initiateSession2(userPin: Array[Char], slotNo: Int): RIO[Module with Scope, Session] =
-    ZIO.acquireRelease(initiateSession(userPin, slotNo))(session => ZIO.attempt(session.closeSession()).orDie)
-
+  def readOnlySession(token: Token): Task[Session] = {
+    ZIO.attempt(token.openSession(Token.SessionType.SERIAL_SESSION,
+      Token.SessionReadWriteBehavior.RW_SESSION, null, null))
+  }
 
   def loadModule(): Task[Module] = for {
     module <- ZIO.attempt(Module.getInstance("C:/SoftHSM2/lib/softhsm2-x64.dll"))
     _ <- ZIO.attempt(module.initialize(null))
   } yield module
 
-  def login(): RIO[Session with Scope, Unit] = for {
+  def login(userPin: String): RIO[Session with Scope, Unit] = for {
     session <- ZIO.service[Session]
-    _ <- ZIO.attempt(session.login(Session.UserType.USER, "1989".toCharArray)).withFinalizer(_ => logout().orDie)
+    _ <- ZIO.attempt(session.login(Session.UserType.USER, userPin.toCharArray)).withFinalizer(_ => logout().orDie)
   } yield ()
 
   def logout(): RIO[Session, Unit] = for {
@@ -96,6 +117,12 @@ object ZIOCryptoki {
 
   def padding(i: Int): Array[Byte] = {
     Integer.toBinaryString((1 << 5) | i).map(_ - '0').map(_.toByte).drop(1).toArray
+  }
+
+  def prepareKey(keyAlias: String): Key = {
+    val key = new Key()
+    key.getLabel.setCharArrayValue(keyAlias.toCharArray)
+    key
   }
 
 }
