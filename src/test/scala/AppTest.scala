@@ -9,7 +9,7 @@ object AppTest extends ZIOSpecDefault {
     test("encrypt / decrypt")(
       check(Gen.stringBounded(1, 10)(Gen.alphaNumericChar)) { data =>
         for {
-          decryption <- App.program("AA", data, "1989")
+          decryption <- App.program(data)
         } yield assert(data)(equalTo(new String(decryption)))
       }
     )

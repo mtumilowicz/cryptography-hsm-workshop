@@ -24,8 +24,8 @@ object App extends ZIOAppDefault {
     config <- loadConfig
     keyAlias = config.keyAlias
     userPin = config.userPin
-    encrypted <- encrypt2(keyAlias, dataToEncrypt, userPin)
-    decrypted <- decrypt2(keyAlias, encrypted, userPin)
+    encrypted <- encrypt(keyAlias, dataToEncrypt, userPin)
+    decrypted <- decrypt(keyAlias, encrypted, userPin)
     _ <- zio.Console.printLine(new String(decrypted))
   } yield decrypted
 

@@ -9,16 +9,16 @@ object ZIOCryptoki {
 
   def retrieveKey(keyTemplate: Key): RIO[Session, Key] = for {
     session <- ZIO.service[Session]
-    _ <- ZIO.attempt(session.findObjectsInit(keyTemplate))
-    secretKeys <- ZIO.attempt(session.findObjects(1))
-    _ <- ZIO.attempt(session.findObjectsFinal())
+    _ <- ZIO.attemptBlocking(session.findObjectsInit(keyTemplate))
+    secretKeys <- ZIO.attemptBlocking(session.findObjects(1))
+    _ <- ZIO.attemptBlocking(session.findObjectsFinal())
     result <- secretKeys.headOption match {
-      case Some(value) => ZIO.attempt(value.asInstanceOf[Key])
+      case Some(value) => ZIO.attemptBlocking(value.asInstanceOf[Key])
       case None => ZIO.fail(new RuntimeException("Key retrieval error"))
     }
   } yield result
 
-  def encrypt2(keyAlias: String, dataToEncrypt: String, userPin: String):
+  def encrypt(keyAlias: String, dataToEncrypt: String, userPin: String):
   ZIO[Session, Throwable, Array[Byte]] = ZIO.scoped {
     for {
       _ <- login(userPin)
@@ -30,20 +30,20 @@ object ZIOCryptoki {
     } yield encryption
   }
 
-  def encrypt(data: Array[Byte],
+  private def encrypt(data: Array[Byte],
               encryptionKey: Key,
               encryptionMechanism: Mechanism): RIO[Session, Array[Byte]] = for {
     session <- ZIO.service[Session]
     _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(encryptionMechanism.isSingleOperationEncryptDecryptMechanism || encryptionMechanism.isFullEncryptDecryptMechanism)
-    _ <- ZIO.attempt(session.encryptInit(encryptionMechanism, encryptionKey))
+    _ <- ZIO.attemptBlocking(session.encryptInit(encryptionMechanism, encryptionKey))
     iv = padding(data.length)
     toEncrypt = iv ++ data
     chunkSize = 16 + (toEncrypt.length / 16) * 16
     outBuffer = Array.ofDim[Byte](toEncrypt.length)
-    _ <- ZIO.attempt(session.encrypt(toEncrypt, 0, chunkSize, outBuffer, 0, chunkSize))
+    _ <- ZIO.attemptBlocking(session.encrypt(toEncrypt, 0, chunkSize, outBuffer, 0, chunkSize))
   } yield outBuffer
 
-  def decrypt2(keyAlias: String, dataToDecrypt: Array[Byte], userPin: String):
+  def decrypt(keyAlias: String, dataToDecrypt: Array[Byte], userPin: String):
   ZIO[Session, Throwable, Array[Byte]] = ZIO.scoped {
     for {
       _ <- login(userPin)
@@ -60,10 +60,10 @@ object ZIOCryptoki {
               paddingFirstBytes: Int): RIO[Session, Array[Byte]] = for {
     session <- ZIO.service[Session]
     _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(decryptionMechanism.isSingleOperationEncryptDecryptMechanism || decryptionMechanism.isFullEncryptDecryptMechanism)
-    _ <- ZIO.attempt(session.decryptInit(decryptionMechanism, decryptionKey))
+    _ <- ZIO.attemptBlocking(session.decryptInit(decryptionMechanism, decryptionKey))
     chunkSize = 16 + (data.length / 16) * 16
     outBuffer = Array.ofDim[Byte](chunkSize)
-    _ <- ZIO.attempt(session.decrypt(data, 0, chunkSize, outBuffer, 0, chunkSize))
+    _ <- ZIO.attemptBlocking(session.decrypt(data, 0, chunkSize, outBuffer, 0, chunkSize))
   } yield outBuffer.slice(paddingFirstBytes, Integer.parseInt(outBuffer.take(paddingFirstBytes).mkString, 2) + paddingFirstBytes)
 
   def sign(data: Array[Byte],
@@ -71,8 +71,8 @@ object ZIOCryptoki {
            signMechanism: Mechanism): RIO[Session, Array[Byte]] = for {
     session <- ZIO.service[Session]
     _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(signMechanism.isSingleOperationSignVerifyMechanism || signMechanism.isFullSignVerifyMechanism)
-    _ <- ZIO.attempt(session.signInit(signMechanism, signKey))
-    signature <- ZIO.attempt(session.sign(data))
+    _ <- ZIO.attemptBlocking(session.signInit(signMechanism, signKey))
+    signature <- ZIO.attemptBlocking(session.sign(data))
   } yield signature
 
   def verify(data: Array[Byte],
@@ -81,38 +81,38 @@ object ZIOCryptoki {
              verifyMechanism: Mechanism): RIO[Session, Boolean] = for {
     session <- ZIO.service[Session]
     _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(verifyMechanism.isSingleOperationSignVerifyMechanism || verifyMechanism.isFullSignVerifyMechanism)
-    _ <- ZIO.attempt(session.verifyInit(verifyMechanism, verifyKey))
-    _ <- ZIO.attempt(session.verify(data, signature))
+    _ <- ZIO.attemptBlocking(session.verifyInit(verifyMechanism, verifyKey))
+    _ <- ZIO.attemptBlocking(session.verify(data, signature))
   } yield true
 
 
   def initiateSession(slotListNo: Int): RIO[Module with Scope, Session] = for {
     pkcs11Module <- ZIO.service[Module]
-    slotList <- ZIO.attempt(pkcs11Module.getSlotList(Module.SlotRequirement.TOKEN_PRESENT))
+    slotList <- ZIO.attemptBlocking(pkcs11Module.getSlotList(Module.SlotRequirement.TOKEN_PRESENT))
     _ <- ZIO.fail(new RuntimeException("Session initiation error")).unless(slotList.length > slotListNo)
     slot = slotList(slotListNo)
-    token <- ZIO.attempt(slot.getToken)
-    session <- ZIO.acquireRelease(readOnlySession(token))(session => ZIO.attempt(session.closeSession()).orDie)
+    token <- ZIO.attemptBlocking(slot.getToken)
+    session <- ZIO.acquireRelease(readOnlySession(token))(session => ZIO.attemptBlocking(session.closeSession()).orDie)
   } yield session
 
   def readOnlySession(token: Token): Task[Session] = {
-    ZIO.attempt(token.openSession(Token.SessionType.SERIAL_SESSION,
+    ZIO.attemptBlocking(token.openSession(Token.SessionType.SERIAL_SESSION,
       Token.SessionReadWriteBehavior.RW_SESSION, null, null))
   }
 
   def loadModule(): Task[Module] = for {
-    module <- ZIO.attempt(Module.getInstance("C:/SoftHSM2/lib/softhsm2-x64.dll"))
-    _ <- ZIO.attempt(module.initialize(null))
+    module <- ZIO.attemptBlocking(Module.getInstance("C:/SoftHSM2/lib/softhsm2-x64.dll"))
+    _ <- ZIO.attemptBlocking(module.initialize(null))
   } yield module
 
   def login(userPin: String): RIO[Session with Scope, Unit] = for {
     session <- ZIO.service[Session]
-    _ <- ZIO.attempt(session.login(Session.UserType.USER, userPin.toCharArray)).withFinalizer(_ => logout().orDie)
+    _ <- ZIO.attemptBlocking(session.login(Session.UserType.USER, userPin.toCharArray)).withFinalizer(_ => logout().orDie)
   } yield ()
 
   def logout(): RIO[Session, Unit] = for {
     session <- ZIO.service[Session]
-    _ <- ZIO.attempt(session.logout())
+    _ <- ZIO.attemptBlocking(session.logout())
   } yield ()
 
   def padding(i: Int): Array[Byte] = {
