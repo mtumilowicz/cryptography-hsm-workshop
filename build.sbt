@@ -9,4 +9,5 @@ lazy val root = (project in file("."))
 
 libraryDependencies += "dev.zio" %% "zio" % "2.0.2"
 libraryDependencies += "dev.zio" %% "zio-test" % "2.0.2"
+libraryDependencies += "com.github.pureconfig" %% "pureconfig" % "0.17.1"
 libraryDependencies += "org.xipki.iaik" % "sunpkcs11-wrapper" % "1.4.10"
