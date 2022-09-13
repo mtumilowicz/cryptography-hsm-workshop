@@ -30,19 +30,6 @@ object ZIOCryptoki {
     } yield encryption
   }
 
-  private def encrypt(data: Array[Byte],
-              encryptionKey: Key,
-              encryptionMechanism: Mechanism): RIO[Session, Array[Byte]] = for {
-    session <- ZIO.service[Session]
-    _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(encryptionMechanism.isSingleOperationEncryptDecryptMechanism || encryptionMechanism.isFullEncryptDecryptMechanism)
-    _ <- ZIO.attemptBlocking(session.encryptInit(encryptionMechanism, encryptionKey))
-    iv = padding(data.length)
-    toEncrypt = iv ++ data
-    chunkSize = 16 + (toEncrypt.length / 16) * 16
-    outBuffer = Array.ofDim[Byte](toEncrypt.length)
-    _ <- ZIO.attemptBlocking(session.encrypt(toEncrypt, 0, chunkSize, outBuffer, 0, chunkSize))
-  } yield outBuffer
-
   def decrypt(keyAlias: String, dataToDecrypt: Array[Byte], userPin: String):
   ZIO[Session, Throwable, Array[Byte]] = ZIO.scoped {
     for {
@@ -53,18 +40,6 @@ object ZIOCryptoki {
       decryption <- decrypt(dataToDecrypt, secretKey, mechanism, padding(dataToDecrypt.length).length)
     } yield decryption
   }
-
-  def decrypt(data: Array[Byte],
-              decryptionKey: Key,
-              decryptionMechanism: Mechanism,
-              paddingFirstBytes: Int): RIO[Session, Array[Byte]] = for {
-    session <- ZIO.service[Session]
-    _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(decryptionMechanism.isSingleOperationEncryptDecryptMechanism || decryptionMechanism.isFullEncryptDecryptMechanism)
-    _ <- ZIO.attemptBlocking(session.decryptInit(decryptionMechanism, decryptionKey))
-    chunkSize = 16 + (data.length / 16) * 16
-    outBuffer = Array.ofDim[Byte](chunkSize)
-    _ <- ZIO.attemptBlocking(session.decrypt(data, 0, chunkSize, outBuffer, 0, chunkSize))
-  } yield outBuffer.slice(paddingFirstBytes, Integer.parseInt(outBuffer.take(paddingFirstBytes).mkString, 2) + paddingFirstBytes)
 
   def sign(data: Array[Byte],
            signKey: Key,
@@ -86,22 +61,18 @@ object ZIOCryptoki {
   } yield true
 
 
-  def initiateSession(slotListNo: Int): RIO[Module with Scope, Session] = for {
+  def initiateSession(slotListNo: Int, behavior: SessionMode): RIO[Module with Scope, Session] = for {
     pkcs11Module <- ZIO.service[Module]
     slotList <- ZIO.attemptBlocking(pkcs11Module.getSlotList(Module.SlotRequirement.TOKEN_PRESENT))
     _ <- ZIO.fail(new RuntimeException("Session initiation error")).unless(slotList.length > slotListNo)
     slot = slotList(slotListNo)
     token <- ZIO.attemptBlocking(slot.getToken)
-    session <- ZIO.acquireRelease(readOnlySession(token))(session => ZIO.attemptBlocking(session.closeSession()).orDie)
+    session <- ZIO.acquireRelease(openSession(token, behavior))(session => ZIO.attemptBlocking(session.closeSession()).orDie)
   } yield session
 
-  def readOnlySession(token: Token): Task[Session] = {
-    ZIO.attemptBlocking(token.openSession(Token.SessionType.SERIAL_SESSION,
-      Token.SessionReadWriteBehavior.RW_SESSION, null, null))
-  }
-
-  def loadModule(): Task[Module] = for {
-    module <- ZIO.attemptBlocking(Module.getInstance("C:/SoftHSM2/lib/softhsm2-x64.dll"))
+  def loadModule(): RIO[AppConfig, Module] = for {
+    config <- ZIO.service[AppConfig]
+    module <- ZIO.attemptBlocking(Module.getInstance(config.pkcs11LibPath))
     _ <- ZIO.attemptBlocking(module.initialize(null))
   } yield module
 
@@ -110,16 +81,46 @@ object ZIOCryptoki {
     _ <- ZIO.attemptBlocking(session.login(Session.UserType.USER, userPin.toCharArray)).withFinalizer(_ => logout().orDie)
   } yield ()
 
-  def logout(): RIO[Session, Unit] = for {
+  private def logout(): RIO[Session, Unit] = for {
     session <- ZIO.service[Session]
     _ <- ZIO.attemptBlocking(session.logout())
   } yield ()
 
-  def padding(i: Int): Array[Byte] = {
+  private def openSession(token: Token, behavior: SessionMode): Task[Session] = {
+    ZIO.attemptBlocking(token.openSession(Token.SessionType.SERIAL_SESSION,
+      behavior.toPkcs11, null, null))
+  }
+
+  private def encrypt(data: Array[Byte],
+                      encryptionKey: Key,
+                      encryptionMechanism: Mechanism): RIO[Session, Array[Byte]] = for {
+    session <- ZIO.service[Session]
+    _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(encryptionMechanism.isSingleOperationEncryptDecryptMechanism || encryptionMechanism.isFullEncryptDecryptMechanism)
+    _ <- ZIO.attemptBlocking(session.encryptInit(encryptionMechanism, encryptionKey))
+    iv = padding(data.length)
+    toEncrypt = iv ++ data
+    chunkSize = 16 + (toEncrypt.length / 16) * 16
+    outBuffer = Array.ofDim[Byte](toEncrypt.length)
+    _ <- ZIO.attemptBlocking(session.encrypt(toEncrypt, 0, chunkSize, outBuffer, 0, chunkSize))
+  } yield outBuffer
+
+  private def decrypt(data: Array[Byte],
+                      decryptionKey: Key,
+                      decryptionMechanism: Mechanism,
+                      paddingFirstBytes: Int): RIO[Session, Array[Byte]] = for {
+    session <- ZIO.service[Session]
+    _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(decryptionMechanism.isSingleOperationEncryptDecryptMechanism || decryptionMechanism.isFullEncryptDecryptMechanism)
+    _ <- ZIO.attemptBlocking(session.decryptInit(decryptionMechanism, decryptionKey))
+    chunkSize = 16 + (data.length / 16) * 16
+    outBuffer = Array.ofDim[Byte](chunkSize)
+    _ <- ZIO.attemptBlocking(session.decrypt(data, 0, chunkSize, outBuffer, 0, chunkSize))
+  } yield outBuffer.slice(paddingFirstBytes, Integer.parseInt(outBuffer.take(paddingFirstBytes).mkString, 2) + paddingFirstBytes)
+
+  private def padding(i: Int): Array[Byte] = {
     Integer.toBinaryString((1 << 5) | i).map(_ - '0').map(_.toByte).drop(1).toArray
   }
 
-  def prepareKey(keyAlias: String): Key = {
+  private def prepareKey(keyAlias: String): Key = {
     val key = new Key()
     key.getLabel.setCharArrayValue(keyAlias.toCharArray)
     key

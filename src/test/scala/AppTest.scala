@@ -1,4 +1,4 @@
-import app.App
+import app.{App, AppConfig, SessionMode}
 import app.ZIOCryptoki._
 import zio.ZLayer
 import zio.test.Assertion._
@@ -13,6 +13,8 @@ object AppTest extends ZIOSpecDefault {
         } yield assert(data)(equalTo(new String(decryption)))
       }
     )
-  ).provideSome(ZLayer.fromZIO(initiateSession(0)),
-    ZLayer.fromZIO(loadModule()))
+  ).provideSome(
+    ZLayer.fromZIO(initiateSession(0, SessionMode.ReadOnly)),
+    ZLayer.fromZIO(loadModule()),
+    AppConfig.live)
 }
