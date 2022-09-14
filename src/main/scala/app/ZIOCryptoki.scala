@@ -1,11 +1,22 @@
 package app
 
-import iaik.pkcs.pkcs11.objects.Key
+import iaik.pkcs.pkcs11.objects.{Key, KeyPair, RSAPrivateKey, RSAPublicKey}
 import iaik.pkcs.pkcs11.wrapper.PKCS11Constants
-import iaik.pkcs.pkcs11.{Mechanism, Module, Session, Token}
+import iaik.pkcs.pkcs11.{Mechanism, MechanismInfo, Module, Session, Token}
 import zio.{RIO, Scope, Task, ZIO}
 
+
 object ZIOCryptoki {
+
+  def generateRSAKeyPair(privateKeyAlias: String, publicKeyAlias: String): RIO[Session, KeyPair] = for {
+    session <- ZIO.service[Session]
+    keyPairGenerationMechanism = Mechanism.get(PKCS11Constants.CKM_RSA_PKCS_KEY_PAIR_GEN)
+    token = session.getToken
+    mechanismInfo <- ZIO.attemptBlocking(token.getMechanismInfo(Mechanism.get(PKCS11Constants.CKM_RSA_PKCS)))
+    publicKey = publicKeyTemplate("RSAPublicKey", mechanismInfo)
+    privateKey = privateKeyTemplate("RSAPrivateKey", mechanismInfo)
+    keyPair <- ZIO.attemptBlocking(session.generateKeyPair(keyPairGenerationMechanism, publicKey, privateKey))
+  } yield keyPair
 
   def retrieveKey(keyTemplate: Key): RIO[Session, Key] = for {
     session <- ZIO.service[Session]
@@ -42,21 +53,21 @@ object ZIOCryptoki {
   }
 
   def sign(data: Array[Byte],
-           signKey: Key,
+           privateKey: Key,
            signMechanism: Mechanism): RIO[Session, Array[Byte]] = for {
-    session <- ZIO.service[Session]
-    _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(signMechanism.isSingleOperationSignVerifyMechanism || signMechanism.isFullSignVerifyMechanism)
-    _ <- ZIO.attemptBlocking(session.signInit(signMechanism, signKey))
-    signature <- ZIO.attemptBlocking(session.sign(data))
-  } yield signature
+      session <- ZIO.service[Session]
+      _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(signMechanism.isSingleOperationSignVerifyMechanism || signMechanism.isFullSignVerifyMechanism)
+      _ <- ZIO.attemptBlocking(session.signInit(signMechanism, privateKey))
+      signature <- ZIO.attemptBlocking(session.sign(data))
+    } yield signature
 
   def verify(data: Array[Byte],
              signature: Array[Byte],
-             verifyKey: Key,
+             publicKey: Key,
              verifyMechanism: Mechanism): RIO[Session, Boolean] = for {
     session <- ZIO.service[Session]
     _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(verifyMechanism.isSingleOperationSignVerifyMechanism || verifyMechanism.isFullSignVerifyMechanism)
-    _ <- ZIO.attemptBlocking(session.verifyInit(verifyMechanism, verifyKey))
+    _ <- ZIO.attemptBlocking(session.verifyInit(verifyMechanism, publicKey))
     _ <- ZIO.attemptBlocking(session.verify(data, signature))
   } yield true
 
@@ -120,10 +131,38 @@ object ZIOCryptoki {
     Integer.toBinaryString((1 << 5) | i).map(_ - '0').map(_.toByte).drop(1).toArray
   }
 
-  private def prepareKey(keyAlias: String): Key = {
+  def prepareKey(keyAlias: String): Key = {
     val key = new Key()
     key.getLabel.setCharArrayValue(keyAlias.toCharArray)
     key
+  }
+
+  private def privateKeyTemplate(alias: String, mechanismInfo: MechanismInfo): RSAPrivateKey = {
+    val privateKeyTemplate = new RSAPrivateKey()
+    privateKeyTemplate.getSensitive.setBooleanValue(true)
+    privateKeyTemplate.getToken.setBooleanValue(true)
+    privateKeyTemplate.getPrivate.setBooleanValue(true)
+    privateKeyTemplate.getLabel.setCharArrayValue(alias.toCharArray)
+    privateKeyTemplate.getSign.setBooleanValue(mechanismInfo.isSign)
+    privateKeyTemplate.getSignRecover.setBooleanValue(mechanismInfo.isSignRecover)
+    privateKeyTemplate.getDecrypt.setBooleanValue(mechanismInfo.isDecrypt)
+    privateKeyTemplate.getDerive.setBooleanValue(mechanismInfo.isDerive)
+    privateKeyTemplate.getUnwrap.setBooleanValue(mechanismInfo.isUnwrap)
+    privateKeyTemplate
+  }
+
+  private def publicKeyTemplate(alias: String, mechanismInfo: MechanismInfo): RSAPublicKey = {
+    val publicKeyTemplate = new RSAPublicKey()
+    publicKeyTemplate.getLabel.setCharArrayValue(alias.toCharArray)
+    publicKeyTemplate.getPublicExponent.setByteArrayValue(BigInt(5).toByteArray)
+    publicKeyTemplate.getToken.setBooleanValue(true)
+    publicKeyTemplate.getModulusBits.setLongValue(1024)
+    publicKeyTemplate.getVerify.setBooleanValue(mechanismInfo.isVerify)
+    publicKeyTemplate.getVerifyRecover.setBooleanValue(mechanismInfo.isVerifyRecover)
+    publicKeyTemplate.getEncrypt.setBooleanValue(mechanismInfo.isEncrypt)
+    publicKeyTemplate.getDerive.setBooleanValue(mechanismInfo.isDerive)
+    publicKeyTemplate.getWrap.setBooleanValue(mechanismInfo.isWrap)
+    publicKeyTemplate
   }
 
 }
