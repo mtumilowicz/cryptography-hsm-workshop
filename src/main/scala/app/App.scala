@@ -8,8 +8,8 @@ import zio.{Scope, ZIO, ZIOAppDefault, ZLayer}
 object App extends ZIOAppDefault {
   override def run: ZIO[Any, Any, Any] = {
     val dataToEncrypt = "abcdefghi"
-    program2(dataToEncrypt).provide(
-      ZLayer.fromZIO(initiateSession(0, SessionMode.ReadOnly)),
+    program(dataToEncrypt).provide(
+      ZLayer.fromZIO(initiateSession(0, SessionMode.ReadWrite)),
       ZLayer.fromZIO(loadModule()),
       ZLayer.fromZIO(login),
       AppConfig.live,
@@ -20,6 +20,7 @@ object App extends ZIOAppDefault {
   def program(dataToEncrypt: String):
   ZIO[Session with AppConfig with UserStateContext.LoggedIn, Throwable, Array[Byte]] = for {
     config <- ZIO.service[AppConfig]
+    _ <- generateAESKey("AesKey")
     keyAlias = config.keyAlias
     encrypted <- encrypt(keyAlias, dataToEncrypt)
     decrypted <- decrypt(keyAlias, encrypted)

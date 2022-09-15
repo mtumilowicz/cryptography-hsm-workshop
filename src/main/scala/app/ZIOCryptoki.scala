@@ -1,8 +1,8 @@
 package app
 
-import iaik.pkcs.pkcs11.objects.{Key, KeyPair, RSAPrivateKey, RSAPublicKey}
+import iaik.pkcs.pkcs11.objects.{Key, KeyPair, RSAPrivateKey, RSAPublicKey, SecretKey, ValuedSecretKey}
 import iaik.pkcs.pkcs11.wrapper.PKCS11Constants
-import iaik.pkcs.pkcs11.{Mechanism, MechanismInfo, Module, Session, Token}
+import iaik.pkcs.pkcs11.{Mechanism, MechanismInfo, Module, Session, Token, TokenException}
 import zio.{RIO, Scope, Task, ZIO}
 
 
@@ -13,10 +13,17 @@ object ZIOCryptoki {
     keyPairGenerationMechanism = Mechanism.get(PKCS11Constants.CKM_RSA_PKCS_KEY_PAIR_GEN)
     token = session.getToken
     mechanismInfo <- ZIO.attemptBlocking(token.getMechanismInfo(Mechanism.get(PKCS11Constants.CKM_RSA_PKCS)))
-    publicKey = publicKeyTemplate("RSAPublicKey", mechanismInfo)
-    privateKey = privateKeyTemplate("RSAPrivateKey", mechanismInfo)
+    publicKey = rsaPublicKeyTemplate("RSAPublicKey", mechanismInfo)
+    privateKey = rsaPrivateKeyTemplate("RSAPrivateKey", mechanismInfo)
     keyPair <- ZIO.attemptBlocking(session.generateKeyPair(keyPairGenerationMechanism, publicKey, privateKey))
   } yield keyPair
+
+  def generateAESKey(alias: String): RIO[Session with UserStateContext.LoggedIn, Key] = for {
+    session <- ZIO.service[Session]
+    keyMechanism = Mechanism.get(PKCS11Constants.CKM_AES_KEY_GEN)
+    pkcs11Object <- ZIO.attemptBlocking(session.generateKey(keyMechanism, aesSecretKeyTemplate(alias)))
+    key <- ZIO.attemptBlocking(pkcs11Object.asInstanceOf[Key])
+  } yield key
 
   def retrieveKey(keyTemplate: Key): RIO[Session with UserStateContext.LoggedIn, Key] = for {
     session <- ZIO.service[Session]
@@ -144,7 +151,7 @@ object ZIOCryptoki {
     key
   }
 
-  private def privateKeyTemplate(alias: String, mechanismInfo: MechanismInfo): RSAPrivateKey = {
+  private def rsaPrivateKeyTemplate(alias: String, mechanismInfo: MechanismInfo): RSAPrivateKey = {
     val privateKeyTemplate = new RSAPrivateKey()
     privateKeyTemplate.getSensitive.setBooleanValue(true)
     privateKeyTemplate.getToken.setBooleanValue(true)
@@ -158,7 +165,7 @@ object ZIOCryptoki {
     privateKeyTemplate
   }
 
-  private def publicKeyTemplate(alias: String, mechanismInfo: MechanismInfo): RSAPublicKey = {
+  private def rsaPublicKeyTemplate(alias: String, mechanismInfo: MechanismInfo): RSAPublicKey = {
     val publicKeyTemplate = new RSAPublicKey()
     publicKeyTemplate.getLabel.setCharArrayValue(alias.toCharArray)
     publicKeyTemplate.getPublicExponent.setByteArrayValue(BigInt(5).toByteArray)
@@ -170,6 +177,22 @@ object ZIOCryptoki {
     publicKeyTemplate.getDerive.setBooleanValue(mechanismInfo.isDerive)
     publicKeyTemplate.getWrap.setBooleanValue(mechanismInfo.isWrap)
     publicKeyTemplate
+  }
+
+  private def aesSecretKeyTemplate(alias: String): SecretKey = {
+    val secretKeyTemplate = new ValuedSecretKey(PKCS11Constants.CKK_AES)
+    secretKeyTemplate.getPrivate.setBooleanValue(true)
+    secretKeyTemplate.getSensitive.setBooleanValue(true)
+    secretKeyTemplate.getExtractable.setBooleanValue(false)
+    secretKeyTemplate.getLabel.setCharArrayValue(alias.toCharArray)
+    secretKeyTemplate.getEncrypt.setBooleanValue(true)
+    secretKeyTemplate.getDecrypt.setBooleanValue(true)
+    secretKeyTemplate.getWrap.setBooleanValue(true)
+    secretKeyTemplate.getUnwrap.setBooleanValue(true)
+    secretKeyTemplate.getToken.setBooleanValue(true)
+    secretKeyTemplate.getValueLen.setLongValue(32)
+
+    secretKeyTemplate
   }
 
 }
