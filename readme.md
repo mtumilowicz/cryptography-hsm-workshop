@@ -1,34 +1,42 @@
-https://stackoverflow.com/questions/43114733/java-complains-on-loading-pkcs-dll-from-softhsm
-https://clydedcruz.medium.com/a-dive-into-softhsm-e4be3e70c7bc
+* references
+  * https://stackoverflow.com/questions/43114733/java-complains-on-loading-pkcs-dll-from-softhsm
+  * https://clydedcruz.medium.com/a-dive-into-softhsm-e4be3e70c7bc
+  * https://www.ibm.com/docs/en/linux-on-systems?topic=introduction-what-is-pkcs-11
+  * https://www.securew2.com/blog/what-is-pkcs11
+  * https://blog.devgenius.io/what-is-hardware-security-module-a-brief-explanation-6ac448f2cfa9
 
-* https://www.ibm.com/docs/en/linux-on-systems?topic=introduction-what-is-pkcs-11
-    * The Public-Key Cryptography Standards (PKCS) comprise a group of cryptographic standards that provide guidelines and application programming interfaces (APIs) for the usage of cryptographic methods
-    * PKCS #11 is a cryptographic token interface standard, which specifies an API, called Cryptoki
-        * With this API, applications can address cryptographic devices as tokens and can perform cryptographic functions as implemented by these tokens.
-* https://www.securew2.com/blog/what-is-pkcs11
-    * PKCS11 is used to create or delete cryptographic data like public-private key pairs.
-    * PKCS11 (Public-Key Cryptography Standards), also known as “Cryptoki” or PKCS#11, is an API used to communicate with cryptographic security tokens such as smart cards, USB keys, and Hardware Security Modules (HSMs).
-    * The API defines the most commonly used cryptographic object types (RSA keys, X.509 Certificates, DES/Triple DES keys, etc.) and all the functions needed to use, create/generate, modify, and delete those objects.
-    * for example, if you want to generate a new key pair, you would do so by calling one of the interfaces provided by the PKCS#11 standard
-* https://blog.devgenius.io/what-is-hardware-security-module-a-brief-explanation-6ac448f2cfa9
-    * HSM is a physical device that protect and manage digital keys and provides crypto-processing function.
-    * To put it simply, HSM will provision your secret digital key from generating the key, store the key, using the key for decrypt/encrypt operation, and discarding the key
-    * Basically, the secret key will never leave HSM in unencrypted format
-    * HSM came in many different forms
-        PCIe, where the HSM came in PCIe form to be embedded in server. Example: Thales Luna PCIe HSM
-        Standalone appliance, where the HSM came in the form of standalone appliance. Example: Utimaco Cryptoserver CP5
-        USB, where the HSM came in the form of USB stick. Example: YubiHSM 2
-    * Below are several use cases of HSM Usage:
+## pkcs11
+* PKCS = The Public-Key Cryptography Standards
+* cryptographic token interface standard
+* specifies an API, called Cryptographic APIs (Cryptoki)
+    * applications can address cryptographic devices as tokens
+      * example: such as smart cards, USB keys, and Hardware Security Modules (HSMs)
+    * and can perform cryptographic functions as implemented by these tokens
+      * example: create or delete cryptographic data like public-private key pairs
+    * API defines the most commonly used cryptographic object types (RSA keys, X.509 Certificates, DES/Triple DES keys, etc.)
+      * and all the functions needed to use, create/generate, modify, and delete those objects.
 
-      Generation ,storage and operation of private key of Certificate Authority (CA)
-      Generation ,storage and operation of private key for https operation of an web server
-      Digitally sign a PDF file,
-      …And many other operations that involves cryptography key storage and operation
-    * To interact with the HSM, we need some kind of protocol
-        * The common protocol used is called PKCS#1
-        * PKCS#11 itself specifies Cryptographic APIs (Cryptoki)
-        * HSM Vendors will expose its function through this Cryptoki.
-        * Usually, HSM Vendors also have their own proprietary protocol and SDK for developer to use
+## hsm
+* a physical device that protect and manage digital keys and provides crypto-processing function
+  * example: generating the key, store the key, using the key for decrypt/encrypt operation, and discarding the key
+* secret key will never leave HSM in unencrypted format
+* many different forms
+    * PCIe, where the HSM came in PCIe form to be embedded in server
+      * Example: Thales Luna PCIe HSM
+    * standalone appliance, where the HSM came in the form of standalone appliance
+      * Example: Utimaco Cryptoserver CP5
+    * USB, where the HSM came in the form of USB stick
+      * Example: YubiHSM 2
+* use cases
+  * generation, storage and operation of private key of Certificate Authority (CA)
+  * generation, storage and operation of private key for https operation of an web server
+  * digitally sign a PDF file
+* to interact with the HSM, we need some kind of protocol
+    * common protocol: PKCS#1
+    * HSM Vendors will expose its function through this Cryptoki
+    * usually, HSM Vendors also have their own proprietary protocol and SDK for developer to use
+
+## softhsm
 * https://clydedcruz.medium.com/a-dive-into-softhsm-e4be3e70c7bc
   * A Hardware Security Module (HSM) is a physical device that attaches directly to a computer or server and is used to securely manage and perform operations on cryptographic keys
   * The purpose of these devices is, among others, to generate cryptographic keys and sign information without revealing private-key material to the outside world
