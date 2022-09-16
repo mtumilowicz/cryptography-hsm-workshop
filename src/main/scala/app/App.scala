@@ -24,8 +24,10 @@ object App extends ZIOAppDefault {
   ZIO[Session with AppConfig with UserStateContext.LoggedIn, Throwable, Array[Byte]] = for {
     config <- ZIO.service[AppConfig]
     keyAlias = config.keyAlias
-    encrypted <- encrypt(keyAlias, dataToEncrypt)
-    decrypted <- decrypt(keyAlias, encrypted)
+    mechanism = Mechanism.get(PKCS11Constants.CKM_AES_ECB)
+    chunkSize = 1024 // AES - 16 byte block
+    encrypted <- encrypt(keyAlias, dataToEncrypt, mechanism, chunkSize)
+    decrypted <- decrypt(keyAlias, encrypted, mechanism, chunkSize)
     _ <- zio.Console.printLine(new String(decrypted))
   } yield decrypted
 
