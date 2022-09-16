@@ -22,7 +22,7 @@ object ZSignature {
   RIO[Session with UserStateContext.LoggedIn, Boolean] = for {
     session <- ZIO.service[Session]
     publicKey <- retrieveKey(publicKeyAlias)
-    _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(verifyMechanism.isSingleOperationSignVerifyMechanism || verifyMechanism.isFullSignVerifyMechanism)
+    _ <- ZIO.fail(new RuntimeException("Mechanism is not designed for signing")).unless(verifyMechanism.isSingleOperationSignVerifyMechanism || verifyMechanism.isFullSignVerifyMechanism)
     _ <- ZIO.attemptBlocking(session.verifyInit(verifyMechanism, publicKey))
     result <- ZIO.attemptBlocking(session.verify(data, signature)).fold(_ => false, _ => true)
   } yield result
@@ -31,7 +31,7 @@ object ZSignature {
                    privateKey: Key,
                    signMechanism: Mechanism): RIO[Session with UserStateContext.LoggedIn, Array[Byte]] = for {
     session <- ZIO.service[Session]
-    _ <- ZIO.fail(new RuntimeException("Key retrieval error")).unless(signMechanism.isSingleOperationSignVerifyMechanism || signMechanism.isFullSignVerifyMechanism)
+    _ <- ZIO.fail(new RuntimeException("Mechanism is not design for verifying")).unless(signMechanism.isSingleOperationSignVerifyMechanism || signMechanism.isFullSignVerifyMechanism)
     _ <- ZIO.attemptBlocking(session.signInit(signMechanism, privateKey))
     signature <- ZIO.attemptBlocking(session.sign(data))
   } yield signature
