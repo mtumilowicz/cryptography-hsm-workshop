@@ -1,4 +1,7 @@
-import app.ZIOCryptoki._
+import app.ZCipher._
+import app.ZPkcs11._
+import app.ZSession._
+import app.ZSignature._
 import app.{AppConfig, SessionMode, UserStateContext}
 import iaik.pkcs.pkcs11.wrapper.PKCS11Constants
 import iaik.pkcs.pkcs11.{Mechanism, Session}
@@ -22,6 +25,17 @@ object AppTest extends ZIOSpecDefault {
         for {
           verified <- signVerify(data)
         } yield assertTrue(verified)
+      }
+    ),
+    test("verify wrong signature")(
+      check(Gen.chunkOfN(10)(Gen.byte), Gen.chunkOfN(20)(Gen.byte)) { (data, signature) =>
+        for {
+          verified <- verify(data.toArray,
+            signature.toArray,
+            "RSAPublicKey",
+            Mechanism.get(PKCS11Constants.CKM_RSA_PKCS)
+          )
+        } yield assert(verified)(isFalse)
       }
     )
   ) @@ sequential

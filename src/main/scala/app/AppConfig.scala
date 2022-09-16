@@ -1,8 +1,8 @@
 package app
 
 import pureconfig.ConfigSource
-import zio.{ZIO, ZLayer}
 import pureconfig.generic.auto._
+import zio.{ZIO, ZLayer}
 
 case class AppConfig(keyAlias: String,
                      userPin: String,

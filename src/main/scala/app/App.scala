@@ -1,6 +1,9 @@
 package app
 
-import app.ZIOCryptoki._
+import app.ZCipher._
+import app.ZPkcs11._
+import app.ZSession._
+import app.ZSignature._
 import iaik.pkcs.pkcs11.wrapper.PKCS11Constants
 import iaik.pkcs.pkcs11.{Mechanism, Session}
 import zio.{Scope, ZIO, ZIOAppDefault, ZLayer}
@@ -20,7 +23,6 @@ object App extends ZIOAppDefault {
   def program(dataToEncrypt: String):
   ZIO[Session with AppConfig with UserStateContext.LoggedIn, Throwable, Array[Byte]] = for {
     config <- ZIO.service[AppConfig]
-    _ <- generateAESKey("AesKey")
     keyAlias = config.keyAlias
     encrypted <- encrypt(keyAlias, dataToEncrypt)
     decrypted <- decrypt(keyAlias, encrypted)
