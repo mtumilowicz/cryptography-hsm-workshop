@@ -12,6 +12,7 @@
   * https://thalesdocs.com/gphsm/ptk/5.9/docs/Content/PTK-C_Program/intro_PKCS11.htm
   * https://medium.com/@mevan.karu/want-to-know-how-to-talk-to-a-hsm-at-code-level-69cb9ba7b392
   * https://medium.com/@mevan.karu/secure-cryptographic-operations-with-hardware-security-modules-d54734834d7e
+
 ## pkcs11
 * PKCS = The Public-Key Cryptography Standards
   * specified by OASIS Open which is a global nonprofit organization
@@ -76,26 +77,15 @@
       * session object
           * temporary and only remain in existence while the session is open
           * only visible to the application that created them
-
-* example
-  * Crypto is an application which is using PKCS #11 supported HSM as it’s cryptographic provider. Crypto needs to generate an AES key using HSM and encrypt a sample of data using the generated key.
-    * Crypto authenticates itself as user ‘USER’ to the HSM and creates a secure communication passage(ie. session between token and application) between device(ie. token resides within a slot) and Crypto.
-      Crypto asks HSM to generate an AES key through the created communication passage(ie. session).
-      HSM returns the created AES key through the passage.
-      Crypto sends set of data needs to be encrypted with the encryption key through the safe passage.
-      HSM sends back the ciphered data to the application through the communication passage.
-      Crypto close the communication passage.
-* There could be issues with PKCS#11 which requires debugging.
-  * To show debug info about Library, Slots, Token, and Mechanism, add showInfo=true in the SunPKCS11 provider configuration file, which is <java-home>/conf/security/sunpkcs11-solaris.cfg or the configuration file that you specified statically or dynamically as described in SunPKCS11 Configuration.
-  * For additional debugging info, users can start or restart the Java processes with one of the following options:
-
-    For general SunPKCS11 provider debugging info:
-
-    -Djava.security.debug=sunpkcs11
-
-    For PKCS#11 keystore specific debugging info:
-
-    -Djava.security.debug=pkcs11keystore
+* debugging
+  * adding showInfo=true in the SunPKCS11 provider configuration file
+    * show debug info about Library, Slots, Token, and Mechanism
+  * restart the Java processes with one of the following options
+    * -Djava.security.debug=sunpkcs11
+      * general SunPKCS11 provider debugging info
+    * -Djava.security.debug=pkcs11keystore
+      * For PKCS#11 keystore specific debugging info
+* 
 * Certain PKCS#11 operations, such as accessing private keys, require a login using a Personal Identification Number, or PIN, before the operations can proceed
 * When accessing the PKCS#11 token as a keystore via the java.security.KeyStore class, you can supply the PIN in the password input parameter to the load method
   * char[] pin = ...;
@@ -181,6 +171,15 @@
 
 
 ## hsm
+* example
+  * application is using PKCS #11 supported HSM
+    * needs to generate an AES key using HSM and encrypt a sample of data using the generated key
+    * application authenticates itself as user ‘USER’ to the HSM and creates a secure communication passage (session between token and application)
+    * application asks HSM to generate an AES key
+    * HSM returns the created AES key
+    * application sends set of data needs to be encrypted with the encryption key
+    * HSM sends back the ciphered data
+    * application closes the communication passage
 * a physical device that protect and manage digital keys and provides crypto-processing function
   * example: generating the key, store the key, using the key for decrypt/encrypt operation, and discarding the key
 * attaches directly to a server and is used to securely manage and perform operations on cryptographic keys
