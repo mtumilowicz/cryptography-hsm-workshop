@@ -21,14 +21,14 @@ object App extends ZIOAppDefault {
   }
 
   def cipher(dataToEncrypt: String):
-  ZIO[Session with AppConfig with UserStateContext.LoggedIn, Throwable, Array[Byte]] = for {
+  ZIO[Session with AppConfig with UserStateContext.LoggedIn, Throwable, String] = for {
     config <- ZIO.service[AppConfig]
     keyAlias = config.keyAlias
     mechanism = Mechanism.get(PKCS11Constants.CKM_AES_ECB)
     chunkSize = 1024 // AES - 16 byte block
     encrypted <- encrypt(keyAlias, dataToEncrypt, mechanism, chunkSize)
     decrypted <- decrypt(keyAlias, encrypted, mechanism, chunkSize)
-    _ <- zio.Console.printLine(new String(decrypted))
+    _ <- zio.Console.printLine(decrypted)
   } yield decrypted
 
   def signature(data: String):

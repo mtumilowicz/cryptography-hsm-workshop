@@ -3,6 +3,7 @@ package app
 import app.ZKey.retrieveKey
 import iaik.pkcs.pkcs11.objects.Key
 import iaik.pkcs.pkcs11.{Mechanism, Session}
+import org.bouncycastle.util.encoders.Base64
 import zio.{RIO, ZIO}
 
 object ZCipher {
@@ -11,27 +12,27 @@ object ZCipher {
               data: String,
               mechanism: Mechanism,
               chunkSize: Int):
-  ZIO[Session with UserStateContext.LoggedIn, Throwable, Array[Byte]] = ZIO.scoped {
+  ZIO[Session with UserStateContext.LoggedIn, Throwable, String] = ZIO.scoped {
     for {
       secretKey <- retrieveKey(keyAlias)
       dataToEncrypt = data.length.toString + "||" + data
       bytes = dataToEncrypt.getBytes("utf-8")
       encryption <- encrypt(bytes, secretKey, mechanism, chunkSize)
-    } yield encryption
+    } yield Base64.toBase64String(encryption)
   }
 
   def decrypt(keyAlias: String,
-              dataToDecrypt: Array[Byte],
+              data: String,
               mechanism: Mechanism,
               chunkSize: Int):
-  ZIO[Session with UserStateContext.LoggedIn, Throwable, Array[Byte]] = ZIO.scoped {
+  ZIO[Session with UserStateContext.LoggedIn, Throwable, String] = ZIO.scoped {
     for {
       secretKey <- retrieveKey(keyAlias)
-      bytes <- decrypt(dataToDecrypt, secretKey, mechanism, chunkSize)
+      bytes <- decrypt(Base64.decode(data), secretKey, mechanism, chunkSize)
       asString = new String(bytes)
       length = asString.takeWhile(_ != '|').toInt
       data = asString.dropWhile(_ != '|').slice(2, length + 2)
-    } yield data.getBytes("utf-8")
+    } yield data
   }
 
   private def encrypt(data: Array[Byte],

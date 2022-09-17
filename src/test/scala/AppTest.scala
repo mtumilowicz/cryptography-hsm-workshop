@@ -48,7 +48,8 @@ object AppTest extends ZIOSpecDefault {
         ZLayer.fromZIO(login),
         AppConfig.live)
 
-  private def encryptDecrypt(dataToEncrypt: String): ZIO[Session with AppConfig with UserStateContext.LoggedIn, Throwable, Array[Byte]] = for {
+  private def encryptDecrypt(dataToEncrypt: String):
+  ZIO[Session with AppConfig with UserStateContext.LoggedIn, Throwable, String] = for {
     config <- ZIO.service[AppConfig]
     keyAlias = config.keyAlias
     mechanism = Mechanism.get(PKCS11Constants.CKM_AES_ECB)
