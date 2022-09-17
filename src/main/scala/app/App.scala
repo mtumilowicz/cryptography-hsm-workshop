@@ -11,7 +11,7 @@ import zio.{Scope, ZIO, ZIOAppDefault, ZLayer}
 object App extends ZIOAppDefault {
   override def run: ZIO[Any, Any, Any] = {
     val dataToEncrypt = "abcdefghi"
-    cipher(dataToEncrypt).provide(
+    signature(dataToEncrypt).provide(
       ZLayer.fromZIO(initiateSession(0, SessionMode.ReadWrite)),
       ZLayer.fromZIO(loadModule()),
       ZLayer.fromZIO(login),
@@ -35,8 +35,8 @@ object App extends ZIOAppDefault {
   ZIO[Session with AppConfig with UserStateContext.LoggedIn, Throwable, Boolean] = for {
     _ <- ZIO.service[Session]
     mechanism = Mechanism.get(PKCS11Constants.CKM_RSA_PKCS)
-    signed <- sign(data, "RSAPrivateKey", mechanism)
-    verified <- verify(data.getBytes("utf-8"), signed, "RSAPublicKey", mechanism)
+    signature <- sign(data, "RSAPrivateKey", mechanism)
+    verified <- verify(data, signature, "RSAPublicKey", mechanism)
     _ <- zio.Console.printLine(verified)
   } yield verified
 

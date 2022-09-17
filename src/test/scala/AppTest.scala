@@ -28,10 +28,10 @@ object AppTest extends ZIOSpecDefault {
       }
     ),
     test("verify wrong signature")(
-      check(Gen.chunkOfN(10)(Gen.byte), Gen.chunkOfN(20)(Gen.byte)) { (data, signature) =>
+      check(Gen.stringBounded(1, 10)(Gen.alphaNumericChar), Gen.stringN(20)(Gen.alphaNumericChar)) { (data, signature) =>
         for {
-          verified <- verify(data.toArray,
-            signature.toArray,
+          verified <- verify(data,
+            signature,
             "RSAPublicKey",
             Mechanism.get(PKCS11Constants.CKM_RSA_PKCS)
           )
@@ -63,6 +63,6 @@ object AppTest extends ZIOSpecDefault {
     _ <- ZIO.service[Session]
     mechanism = Mechanism.get(PKCS11Constants.CKM_RSA_PKCS)
     signed <- sign(dataToSign, "RSAPrivateKey", mechanism)
-    verified <- verify(dataToSign.getBytes("utf-8"), signed, "RSAPublicKey", mechanism)
+    verified <- verify(dataToSign, signed, "RSAPublicKey", mechanism)
   } yield verified
 }
