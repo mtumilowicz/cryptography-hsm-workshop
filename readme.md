@@ -14,56 +14,93 @@
   * https://medium.com/@mevan.karu/secure-cryptographic-operations-with-hardware-security-modules-d54734834d7e
 ## pkcs11
 * PKCS = The Public-Key Cryptography Standards
-* cryptographic token interface standard
+  * specified by OASIS Open which is a global nonprofit organization
+    * works on the development, convergence, and adoption of open standards for security, IoT, energy, 
+    content technologies, emergency management, and other areas
 * specifies an API, called Cryptographic APIs (Cryptoki)
-    * applications can address cryptographic devices as tokens
-      * example: such as smart cards, USB keys, and Hardware Security Modules (HSMs)
-    * and can perform cryptographic functions as implemented by these tokens
-      * example: create or delete cryptographic data like public-private key pairs
-    * API defines the most commonly used cryptographic object types (RSA keys, X.509 Certificates, DES/Triple DES keys, etc.)
-      * and all the functions needed to use, create/generate, modify, and delete those objects.
-* PKCS#11 specifies an Application Programming Interface(API) called Cryptoki for devices that hold cryptographic information and perform cryptographic functions.
-  * These devices are known as Cryptographic Tokens.
-* The PKCS#11 configuration file must contain the location of the .so file and the slot number of the token.
-  * Attributes in the PKCS#11 Provider Configuration File
-  * library, Pathname of PKCS#11 implementation,
-  * name. Name suffix of this provider instance, This string is concatenated with the prefix SunPKCS11- to produce this provider instance's name (that is, the string returned by its Provider.getName() method). For example, if the name attribute is "FooAccelerator", then the provider instance's name will be "SunPKCS11-FooAccelerator".
-  * description. Description of this provider instance. This string will be returned by the provider instance's Provider.getInfo() method
-  * slot. Slot id, This is the id of the slot that this provider instance is to be associated with. For example, you would use 1 for the slot with the id 1 under PKCS#11
-  * slotListIndex, Slot index, This is the slot index that this provider instance is to be associated with. It is the index into the list of all slots returned by the PKCS#11 function C_GetSlotList. For example, 0 indicates the first slot in the list. At most one of slot or slotListIndex may be specified. If neither is specified, the default is a slotListIndex of 0.
-  * enabledMechanisms, Brace enclosed, whitespace-separated list of PKCS#11 mechanisms to enable,
-    * enabledMechanisms = {
-      CKM_RSA_PKCS
-      CKM_RSA_PKCS_KEY_PAIR_GEN
+  * defines the most commonly used cryptographic object types
+    * example: RSA keys, X.509 Certificates, DES/Triple DES keys, etc.
+    * and all the functions needed to use
+      * example: create/generate, modify, and delete those objects
+* applications can address cryptographic devices (tokens)
+  * example: smart cards, USB keys, and Hardware Security Modules (HSMs)
+  * and can perform cryptographic functions as implemented by these tokens
+    * example: create or delete cryptographic data like public-private key pairs
+* comes with a series of C header files 
+  * (pkcs11.h, pkcs11f.h and pkcs11t.h)
+  * which different hardware providers provide implementations for
+  * Java has to provide a JCA wrapper for it via JNI (sun.security.pkcs11.SunPKCS11)
+* sun.security.pkcs11.SunPKCS11
+  * just a huge wrapper class that via JNI calls into the native module (.so, .dll) that implements 
+  the PKCS11 C header files
+
+* pkcs#11 configuration file
+  * example
+    ```
+    name = SoftHSM
+    library = C:/SoftHSM2/lib/softhsm2-x64.dll
+    slot = 875625480
+    attributes(generate, *, *) = {
+    CKA_TOKEN = true
+    }
+    attributes(generate, CKO_CERTIFICATE, *) = {
+    CKA_PRIVATE = false
+    }
+    attributes(generate, CKO_PUBLIC_KEY, *) = {
+    CKA_PRIVATE = false
+    }
+    ```
+  * library = pathname of PKCS#11 implementation
+  * name = name suffix of this provider instance
+  * description = description of this provider instance
+  * slot = slot id
+    * id of the slot that this provider instance is to be associated with
+  * slotListIndex = slot index
+    * slot index that this provider instance is to be associated with
+    * example: 0 indicates the first slot in the list
+    * at most one of slot or slotListIndex may be specified
+  * enabledMechanisms
+    * example
+      ```
+      enabledMechanisms = {
+          CKM_RSA_PKCS
+          CKM_RSA_PKCS_KEY_PAIR_GEN
       }
-    * If neither is specified, the mechanisms enabled are those that are supported by both the SunPKCS11 provider (see SunPKCS11 Provider Supported Algorithms) and the PKCS#11 token.
-  * attributes, The attributes option can be used to specify additional PKCS#11 that should be set when creating PKCS#11 key objects
-    * The attributes option allows you to specify additional PKCS#11 attributes that should be set when creating PKCS#11 key objects
-    * By default, the SunPKCS11 provider only specifies mandatory PKCS#11 attributes when creating objects
-      * For example, for RSA public keys it specifies the key type and algorithm (CKA_CLASS and CKA_KEY_TYPE) and the key values for RSA public keys (CKA_MODULUS and CKA_PUBLIC_EXPONENT)
-    * The option can be specified zero or more times, the options are processed in the order specified in the configuration file as described below. The attributes option has the format:
-      * attributes(operation, keytype, keyalgorithm) = {
+      ```
+    * not specified => mechanisms enabled are those that are supported 
+    by both the SunPKCS11 provider and the PKCS#11 token
+  * attributes
+    * example
+      ```
+      attributes(operation, keytype, keyalgorithm) = {
         name1 = value1
         [...]
-        }
-      * Valid values for operation are:
+      }
+      ```
+    * used to specify additional PKCS#11 that should be set when creating PKCS#11 key objects
+    * by default, the SunPKCS11 provider only specifies mandatory PKCS#11 attributes when creating objects
+      * example
+        * RSA public keys
+          * key type and algorithm (CKA_CLASS and CKA_KEY_TYPE)
+          * key values for RSA public keys (CKA_MODULUS and CKA_PUBLIC_EXPONENT)
+    * operation
+      * generate - for keys generated via a KeyPairGenerator or KeyGenerator
+      * import - for keys created via a KeyFactory or SecretKeyFactory
+      * * - for keys created using either a generate or a create operation
+    * keytype
+      * CKO_PUBLIC_KEY, CKO_PRIVATE_KEY, and CKO_SECRET_KEY and * to match any type of key
+    * keyalgorithm
+      * one of the CKK_xxx constants from the PKCS#11 specification
+        * CKK_RSA, CKK_DSA, CKK_DH, CKK_AES, CKK_DES, CKK_DES3, CKK_RC4, CKK_BLOWFISH, CKK_GENERIC_SECRET, and CKK_EC
+      * or * to match keys of any algorithm
+      * attribute names and values
+        * name must be a CKA_xxx constant from the PKCS#11 specification
+          * example: CKA_SENSITIVE
+        * value can be one of the following:
+          * boolean value
+          * integer
+          * null = indicating that this attribute should not be specified when creating objects.
 
-                 generate, for keys generated via a KeyPairGenerator or KeyGenerator
-                 import, for keys created via a KeyFactory or SecretKeyFactory. This also applies to Java software keys automatically converted to PKCS#11 key objects when they are passed to the initialization method of a cryptographic operation, for example Signature.initSign().
-                 *, for keys created using either a generate or a create operation.
-      * Valid values for keytype are CKO_PUBLIC_KEY, CKO_PRIVATE_KEY, and CKO_SECRET_KEY, for public, private, and secret keys, respectively, and * to match any type of key.
-      * Valid values for keyalgorithm are one of the CKK_xxx constants from the PKCS#11 specification, or * to match keys of any algorithm. The algorithms currently supported by the SunPKCS11 provider include CKK_RSA, CKK_DSA, CKK_DH, CKK_AES, CKK_DES, CKK_DES3, CKK_RC4, CKK_BLOWFISH, CKK_GENERIC_SECRET, and CKK_EC.
-      * The attribute names and values are specified as a list of one or more name-value pairs. name must be a CKA_xxx constant from the PKCS#11 specification, for example CKA_SENSITIVE. value can be one of the following:
-
-        A boolean value, true or false
-        An integer, in decimal form (default) or in hexadecimal form if it begins with 0x.
-        null, indicating that this attribute should not be specified when creating objects.
-  * There is also a special form of the attributes option. You can write attributes = compatibility in the configuration file. That is a shortcut for a whole set of attribute statements.
-    * They are designed to provider maximum compatibility with existing Java applications, which may expect, for example, all key components to be accessible and secret keys to be usable for both encryption and decryption.
-* The PKCS11 standard comes with a series of C header files (pkcs11.h, pkcs11f.h and pkcs11t.h), which different hardware providers provide implementations for.
-* The lingua franca for hardware is C, so Java has to provide a JCA wrapper for it via JNI, this is essentially what sun.security.pkcs11.SunPKCS11 is, just a huge wrapper class that via JNI calls into the native module (.so, .dll) that implements the PKCS11 C header files.
-* PKCS #11 is a standard API specified by OASIS Open which is a global nonprofit organization that works on the development, convergence, and adoption of open standards for security, IoT, energy, content technologies, emergency management, and other areas
-* “The PKCS#11 standard specifies an application programming interface (API), called “Cryptoki,” for devices that hold cryptographic information and perform cryptographic functions.” — OASIS Documentation
 * PKCS #11 is not an implementation of a API, it is a specification of the required set of rules and guidelines for the implementation of the API
 * OASIS Open provides only a set of ANSI C header files defining the interface exposed to client application
 * HSM vendor is responsible for providing concrete implementation of the functionalities specified in PKCS #11.
