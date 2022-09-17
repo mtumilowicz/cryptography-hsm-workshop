@@ -13,6 +13,8 @@
     * https://medium.com/@mevan.karu/want-to-know-how-to-talk-to-a-hsm-at-code-level-69cb9ba7b392
     * https://medium.com/@mevan.karu/secure-cryptographic-operations-with-hardware-security-modules-d54734834d7e
     * http://javadoc.iaik.tugraz.at/pkcs11_wrapper/current/index.html
+    * https://www.opendnssec.org/softhsm/
+    * https://www.mankier.com/1/softhsm2-util
 
 ## pkcs11
 * PKCS = The Public-Key Cryptography Standards
@@ -256,9 +258,14 @@ and security-focused OS to secure sensitive data from intruders
     distributed over set of HSMs connected to the application.
 
 ## softhsm
-* SoftHSM isn’t exactly an HSM per se, but a software implementation of a generic PKCS#11 device
-* cmds
-  *  softhsm2-util --show-slots
+* potential problem with the use of the PKCS #11 interface is that it might limit the wide spread use of OpenDNSSEC,
+since a potential user might not be willing to invest in a new hardware device
+* isn’t exactly an HSM per se, but a software implementation of a generic PKCS#11 device
+* you can use it to explore PKCS #11 without having a Hardware Security Module
+* commands
+  * softhsm2-util --show-slots
+  * softhsm2-util --init-token --slot 0 --label "<token name>"
+  * softhsm2-util --import key1.pem --token "mytoken" --label "My key" --id A1B2 --pin 123456
 
 ## attacks
 * [Explaining HSMs | Part 3 - Common Attacks](https://www.youtube.com/watch?v=aRjuUPYE-tk)
