@@ -6,6 +6,8 @@ import iaik.pkcs.pkcs11.{Mechanism, Session}
 import org.bouncycastle.util.encoders.Base64
 import zio.{RIO, ZIO}
 
+import java.nio.charset.StandardCharsets
+
 object ZCipher {
 
   def encrypt(keyAlias: String,
@@ -16,7 +18,7 @@ object ZCipher {
     for {
       secretKey <- retrieveKey(keyAlias)
       dataToEncrypt = data.length.toString + "||" + data
-      bytes = dataToEncrypt.getBytes("utf-8")
+      bytes = dataToEncrypt.getBytes(StandardCharsets.UTF_8)
       encryption <- encrypt(bytes, secretKey, mechanism, chunkSize)
     } yield Base64.toBase64String(encryption)
   }

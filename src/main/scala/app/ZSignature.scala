@@ -6,17 +6,19 @@ import iaik.pkcs.pkcs11.{Mechanism, Session}
 import org.bouncycastle.util.encoders.Base64
 import zio.{RIO, ZIO}
 
+import java.nio.charset.StandardCharsets
+
 object ZSignature {
 
-  def sign(data: String,
+  def sign(dataHash: String,
            keyAlias: String,
            signMechanism: Mechanism):
   RIO[Session with UserStateContext.LoggedIn, String] = for {
     privateKey <- retrieveKey(keyAlias)
-    signature <- sign(data.getBytes("utf-8"), privateKey, signMechanism)
+    signature <- sign(dataHash.getBytes(StandardCharsets.UTF_8), privateKey, signMechanism)
   } yield Base64.toBase64String(signature)
 
-  def verify(data: String,
+  def verify(dataHash: String,
              signature: String,
              publicKeyAlias: String,
              verifyMechanism: Mechanism):
@@ -25,7 +27,7 @@ object ZSignature {
     publicKey <- retrieveKey(publicKeyAlias)
     _ <- ZIO.fail(new RuntimeException("Mechanism is not designed for signing")).unless(verifyMechanism.isSingleOperationSignVerifyMechanism || verifyMechanism.isFullSignVerifyMechanism)
     _ <- ZIO.attemptBlocking(session.verifyInit(verifyMechanism, publicKey))
-    result <- ZIO.attemptBlocking(session.verify(data.getBytes("utf-8"), Base64.decode(signature))).fold(_ => false, _ => true)
+    result <- ZIO.attemptBlocking(session.verify(dataHash.getBytes(StandardCharsets.UTF_8), Base64.decode(signature))).fold(_ => false, _ => true)
   } yield result
 
   private def sign(data: Array[Byte],
