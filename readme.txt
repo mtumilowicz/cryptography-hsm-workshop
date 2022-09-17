@@ -247,7 +247,7 @@ and security-focused OS to secure sensitive data from intruders
             * specific provider will register different algorithm implementations where each implementation
             implements a specific *SPI (service provider interface) abstract class depending on which
             algorithm it’s implementing
-                * example:
+                * example: KeyStoreSpi, KeyPairGenerationSpi, SignatureSpi
     * Sun PKCS#11: bridge between the JCA, JCE APIs and the native PKCS#11 module
         * native module: a shared-object library provided by the vendor of the HSM device
             * .so file on Solaris and Linux
@@ -255,7 +255,7 @@ and security-focused OS to secure sensitive data from intruders
 * multiple HSMs are handled by the PKCS #11 API
     ![alt text](img/hsm_multiple_slots.png)
     * PKCS #11 API is designed integrating load balancing techniques so that cryptographic operations are fairly
-    distributed over set of HSMs connected to the application.
+    distributed over set of HSMs connected to the application
 
 ## softhsm
 * potential problem with the use of the PKCS #11 interface is that it might limit the wide spread use of OpenDNSSEC,
