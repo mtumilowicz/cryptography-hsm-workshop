@@ -12,6 +12,7 @@
     * https://thalesdocs.com/gphsm/ptk/5.9/docs/Content/PTK-C_Program/intro_PKCS11.htm
     * https://medium.com/@mevan.karu/want-to-know-how-to-talk-to-a-hsm-at-code-level-69cb9ba7b392
     * https://medium.com/@mevan.karu/secure-cryptographic-operations-with-hardware-security-modules-d54734834d7e
+    * http://javadoc.iaik.tugraz.at/pkcs11_wrapper/current/index.html
 
 ## pkcs11
 * PKCS = The Public-Key Cryptography Standards
@@ -26,6 +27,7 @@
 * PKCS #11 is not an implementation of a API, it is a specification for the implementation of the API
     * OASIS Open provides only a set of ANSI C header files defining the interface exposed to client application
     * HSM vendor is responsible for providing concrete implementation of the functionalities specified in PKCS #11
+        * which you need to install and configure according to manufacturer's instructions
 * applications can address cryptographic devices (tokens)
     * example: smart cards, USB keys, and Hardware Security Modules (HSMs)
     * and can perform cryptographic functions as implemented by these tokens
@@ -34,10 +36,15 @@
     * (pkcs11.h, pkcs11f.h and pkcs11t.h)
     * which different hardware providers provide implementations for
     * Java has to provide a JCA wrapper for it via JNI (sun.security.pkcs11.SunPKCS11)
-        * example:
-* sun.security.pkcs11.SunPKCS11
-    * just a huge wrapper class that via JNI calls into the native module (.so, .dll) that implements
-    the PKCS11 C header files
+        * some of famous wrappers:
+            * SunPKCS11
+                * doesn’t provide an object oriented mapping of data structures
+                * in contrast to most other providers, does not implement cryptographic algorithms itself
+            * IBM PKCS11
+                * isn’t an open source project
+            * IAIK PKCS11
+                * open sourced
+          * SunPKCS11 doesn’t provide an object oriented mapping of data structures and IBM wrapper isn’t an open source project
 * glossary
     * token
         * logical view of the underlying cryptographic device
@@ -54,6 +61,7 @@
                     applications from different slots concurrently.
     * session
         * logical connection between an application and a token
+        * all cryptographic operations provided in the HSM are used via an initiated session
         * two types
             * Read/Write
             * Read-Only
@@ -92,86 +100,84 @@
         * -Djava.security.debug=pkcs11keystore
             * For PKCS#11 keystore specific debugging info
 * pkcs#11 configuration file
-  * example
-    ```
-    name = SoftHSM
-    library = C:/SoftHSM2/lib/softhsm2-x64.dll
-    slot = 875625480
-    attributes(generate, *, *) = {
-    CKA_TOKEN = true
-    }
-    attributes(generate, CKO_CERTIFICATE, *) = {
-    CKA_PRIVATE = false
-    }
-    attributes(generate, CKO_PUBLIC_KEY, *) = {
-    CKA_PRIVATE = false
-    }
-    ```
-  * library = pathname of PKCS#11 implementation
-  * name = name suffix of this provider instance
-  * description = description of this provider instance
-  * slot = slot id
-    * id of the slot that this provider instance is to be associated with
-  * slotListIndex = slot index
-    * slot index that this provider instance is to be associated with
-    * example: 0 indicates the first slot in the list
-    * at most one of slot or slotListIndex may be specified
-  * enabledMechanisms
     * example
-      ```
-      enabledMechanisms = {
-          CKM_RSA_PKCS
-          CKM_RSA_PKCS_KEY_PAIR_GEN
-      }
-      ```
-    * not specified => mechanisms enabled are those that are supported
-      by both the SunPKCS11 provider and the PKCS#11 token
-  * attributes
-    * example
-      ```
-      attributes(operation, keytype, keyalgorithm) = {
-        name1 = value1
-        [...]
-      }
-      ```
-    * used to specify additional PKCS#11 that should be set when creating PKCS#11 key objects
-    * by default, the SunPKCS11 provider only specifies mandatory PKCS#11 attributes when creating objects
-      * example
-        * RSA public keys
-          * key type and algorithm (CKA_CLASS and CKA_KEY_TYPE)
-          * key values for RSA public keys (CKA_MODULUS and CKA_PUBLIC_EXPONENT)
-    * operation
-      * generate - for keys generated via a KeyPairGenerator or KeyGenerator
-      * import - for keys created via a KeyFactory or SecretKeyFactory
-      * * - for keys created using either a generate or a create operation
-    * keytype
-      * CKO_PUBLIC_KEY, CKO_PRIVATE_KEY, and CKO_SECRET_KEY and * to match any type of key
-    * keyalgorithm
-      * one of the CKK_xxx constants from the PKCS#11 specification
-        * CKK_RSA, CKK_DSA, CKK_DH, CKK_AES, CKK_DES, CKK_DES3, CKK_RC4, CKK_BLOWFISH, CKK_GENERIC_SECRET, and CKK_EC
-      * or * to match keys of any algorithm
-      * attribute names and values
-        * name must be a CKA_xxx constant from the PKCS#11 specification
-          * example: CKA_SENSITIVE
-        * value can be one of the following:
-          * boolean value
-          * integer
-          * null = indicating that this attribute should not be specified when creating objects
+        ```
+        name = SoftHSM
+        library = C:/SoftHSM2/lib/softhsm2-x64.dll
+        slot = 875625480
+        attributes(generate, *, *) = {
+        CKA_TOKEN = true
+        }
+        attributes(generate, CKO_CERTIFICATE, *) = {
+        CKA_PRIVATE = false
+        }
+        attributes(generate, CKO_PUBLIC_KEY, *) = {
+        CKA_PRIVATE = false
+        }
+        ```
+    * library = pathname of PKCS#11 implementation
+    * name = name suffix of this provider instance
+    * description = description of this provider instance
+    * slot = slot id
+        * id of the slot that this provider instance is to be associated with
+    * slotListIndex = slot index
+        * slot index that this provider instance is to be associated with
+        * example: 0 indicates the first slot in the list
+        * at most one of slot or slotListIndex may be specified
+    * enabledMechanisms
+        * example
+            ```
+            enabledMechanisms = {
+                CKM_RSA_PKCS
+                CKM_RSA_PKCS_KEY_PAIR_GEN
+            }
+            ```
+        * not specified => mechanisms enabled are those that are supported
+          by both the SunPKCS11 provider and the PKCS#11 token
+    * attributes
+        * example
+            ```
+            attributes(operation, keytype, keyalgorithm) = {
+              name1 = value1
+              [...]
+            }
+            ```
+        * used to specify additional PKCS#11 that should be set when creating PKCS#11 key objects
+        * by default, the SunPKCS11 provider only specifies mandatory PKCS#11 attributes when creating objects
+            * example
+                * RSA public keys
+                    * key type and algorithm (CKA_CLASS and CKA_KEY_TYPE)
+                    * key values for RSA public keys (CKA_MODULUS and CKA_PUBLIC_EXPONENT)
+        * operation
+            * generate - for keys generated via a KeyPairGenerator or KeyGenerator
+            * import - for keys created via a KeyFactory or SecretKeyFactory
+            * * - for keys created using either a generate or a create operation
+        * keytype
+            * CKO_PUBLIC_KEY, CKO_PRIVATE_KEY, and CKO_SECRET_KEY and * to match any type of key
+        * keyalgorithm
+            * one of the CKK_xxx constants from the PKCS#11 specification
+                * CKK_RSA, CKK_DSA, CKK_DH, CKK_AES, CKK_DES, CKK_DES3, CKK_RC4, CKK_BLOWFISH, CKK_GENERIC_SECRET, and CKK_EC
+            * or * to match keys of any algorithm
+            * attribute names and values
+                * name must be a CKA_xxx constant from the PKCS#11 specification
+                    * example: CKA_SENSITIVE
+                * value can be one of the following:
+                    * boolean value
+                    * integer
+                    * null = indicating that this attribute should not be specified when creating objects
 
 ## hsm
-* example
-  * application is using PKCS #11 supported HSM
-    * needs to generate an AES key using HSM and encrypt a sample of data using the generated key
-    * application authenticates itself as user ‘USER’ to the HSM and creates a secure communication passage (session between token and application)
-    * application asks HSM to generate an AES key
-    * HSM returns the created AES key
-    * application sends set of data needs to be encrypted with the encryption key
-    * HSM sends back the ciphered data
-    * application closes the communication passage
 * a physical device that protect and manage digital keys and provides crypto-processing function
-  * example: generating the key, store the key, using the key for decrypt/encrypt operation, and discarding the key
+    * example: generating the key, store the key, using the key for decrypt/encrypt operation, and discarding the key
+* trusted, hardened, tamper resistant, dedicated crypto processor designed to perform strengthened cryptographic
+has a specially designed, well-tested hardware to perform cryptographic operations faster than a normal computer
+and security-focused OS to secure sensitive data from intruders
 * attaches directly to a server and is used to securely manage and perform operations on cryptographic keys
+    * plays a major role in the aspect of system’s security and it can become a single point of failure to the system
+        * most of the HSM vendors provide capability of using HSM clusters for high availability and load balancing
 * secret key will never leave HSM in unencrypted format
+    * main purpose: generate cryptographic keys and sign information without revealing private-key material
+    to the outside world
 * many different forms
     * PCIe, where the HSM came in PCIe form to be embedded in server
       * Example: Thales Luna PCIe HSM
@@ -179,68 +185,75 @@
       * Example: Utimaco Cryptoserver CP5
     * USB, where the HSM came in the form of USB stick
       * Example: YubiHSM 2
+* HSMs vs software cryptographic providers
+    * secured key management process
+        * HSMs are good at providing both logical and physical protection.
+        * HSMs keep sensitive materials such as private keys, symmetric keys within the HSM throughout their life cycle
+        without exposing them to outside
+        * all key operations are taking place inside the HSM => only authorized users can use the keys
+        * HSMs provide additional security by being tamper resistant
+            * device become inoperable in case of a tampering
+        * HSMs maintain a log containing all information on operations carried out using keys
+            * makes it easier to determine if any intrusions or misuse of keys have been taken place
+    * increase the throughput of the system
+        * software cryptographic providers utilize server resources
+            * causes performance degradation in the server
+        * HSMs are designed and optimized to carry out cryptographic operations
+            * increase in the overall performance of the system since
+                * server resources can be utilized for business logic processing
+                * HSMs are much faster at crypto processing than a normal CPU.
+    * strong key generation
+        * keys generated using software are inherently weaker than those generated using HSMs
+            * computer is a finite state machine => is not capable of generating truly random values
+            * HSMs are using a special physical processes to generate truly random keys
+    * meet current standards and regulations on cyber security
+        * FIPS 140-2
+            * an internationally recognized standard for hardware cryptographic devices
+            * four security levels
+                * almost every HSM in the market is standardized under those levels
+        * integrating HSMs to a system makes it easier to get compliance with current security regulations
 * use cases
-  * generation, storage and operation of private key of Certificate Authority (CA)
-  * generation, storage and operation of private key for https operation of an web server
-  * digitally sign a PDF file
+    * generation, storage and operation of private key of Certificate Authority (CA)
+    * generation, storage and operation of private key for https operation of an web server
+    * digitally sign a PDF file
 * to interact with the HSM, we need some kind of protocol
     * common protocol: PKCS#1
     * HSM Vendors will expose its function through this Cryptoki
     * usually, HSM Vendors also have their own proprietary protocol and SDK for developer to use
-* The purpose of these devices is, among others, to generate cryptographic keys and sign information without revealing private-key material to the outside world
-* HSMs are commonly used in Public Key Cryptography (PKI) deployments to secure Certificate Authority keys
+    * example
+        * application is using PKCS #11 supported HSM
+            * needs to generate an AES key using HSM and encrypt a sample of data using the generated key
+            * application authenticates itself as user ‘USER’ to the HSM and creates a secure communication passage
+            (session between token and application)
+            * application asks HSM to generate an AES key
+            * HSM returns the created AES key
+            * application sends set of data needs to be encrypted with the encryption key
+            * HSM sends back the ciphered data
+            * application closes the communication passage
 * layers involved in interacting with an HSM
-  ![alt text](img/hsm_layers.png)
-  * Java Cryptography Architecture (JCA) and Java Cryptography Extension (JCE)
-    * Java defines a set of programming interfaces for performing cryptographic operations
-    * These interfaces are provider-based
-      * This means that when performing a cryptographic operation in our application, the application talks to the interface, but the actual operation is performed in the configured provider which implements that interface
-    * The Java Cryptography Api or JCA is a plugable architecture which tries to abstract the actual crypto implementation from the algorithm requested.
-    * This allows our code to use Cipher.getInstance(“AES”), and not have to hard code the actual implementation, better or different implementations can be swapped out depending on deployment requirements.
-    * At the heart of the JCA architecture is the Provider abstract class, a specific provider will register different algorithm implementations where each implementation implements a specific *SPI (service provider interface) abstract class depending on which algorithm it’s implementing.
-  * Sun PKCS#11 provider does not implement cryptographic algorithms by itself, but acts as a bridge between the JCA, JCE APIs and the native PKCS#11 module
-    * native module must be in the form of a shared-object library (.so file on Solaris and Linux) or dynamic-link library (.dll on Windows) and is provided by the vendor of the HSM device
-      * Instead, it acts as a bridge between the Java JCA and JCE APIs and the native PKCS#11 cryptographic API, translating the calls and conventions between the two.
-      * cryptographic devices such as Smartcards and hardware accelerators often come with software that includes a PKCS#11 implementation, which you need to install and configure according to manufacturer's instructions
-    * The SunPKCS11 provider, in contrast to most other providers, does not implement cryptographic algorithms itself
-    * for example
-      * sun.security.pkcs12.PKCS12KeyStore extends java.security.KeyStoreSPI which is the JCA abstraction for a KeyStore
-* As you can see for any application to use the HSM it should first initiate a session with a token.
-  * All cryptographic operations provided in the HSM are used via an initiated session.
-* Application doesn’t have to bear the burden of handling multiple HSMs because it is handled by the PKCS #11 API. PKCS #11 API is designed integrating load balancing techniques so that cryptographic operations are fairly distributed over set of HSMs connected to the application.
-  ![alt text](img/hsm_multiple_slots.png)
-* Multiple applications using multiple HSMs through PKCS #11 API
-* HSM vendors provide the PKCS #11 implementation in C language. Hope you already know it, then here is an obvious question…
-* How to develop a Java application using C module?
-  * So we need a wrapper to map C data structures to Java data structures and vice versa.
-  * Some of famous wrappers are SunPKCS11, IBM PKCS11 and IAIK PKCS11 wrapper
-    * SunPKCS11 doesn’t provide an object oriented mapping of data structures and IBM wrapper isn’t an open source project
-    * http://javadoc.iaik.tugraz.at/pkcs11_wrapper/current/index.html
-
-* A HSM is a trusted, hardened, tamper resistant, dedicated crypto processor designed to perform strengthened cryptographic operations such as encrypting, decrypting, digital signing, digital sign verifying, hashing etc.
-* HSM has a specially designed, well-tested hardware to perform cryptographic operations faster than a normal computer and security-focused OS to secure sensitive data from intruders
-* Normally these modules can be attached to a computer or a network sever externally via a USB port
-* HSM plays a major role in the aspect of system’s security and it can become a single point of failure to the system
-  * Because of that most of the HSM vendors provide capability of using HSM clusters for high availability and load balancing.
-* There are several benefits of using HSMs over software cryptographic providers
-  * Secured key management process
-    * HSMs are good at providing both logical and physical protection.
-    * HSMs keep sensitive materials such as private keys, symmetric keys within the HSM throughout their life cycle without exposing them to outside
-    * Since all key operations are taking place inside the HSM so that only authorized users can use the keys
-    * Also HSMs provide additional security by being tamper resistant which means device become inoperable in case of a tampering
-    * A HSM maintains a log containing all information on operations carried out using keys which makes it easier to determine if any intrusions or misuse of keys have been taken place.
-  * Increase the throughput of the system
-    * Software cryptographic providers utilize server resources for cryptographic operations causing performance degradation in the server
-    * As I mentioned earlier HSMs are designed and optimized to carry out cryptographic operations more efficiently and securely
-    * Integrating a HSM to a system causes increase in the overall performance of the system since, server resources can be utilized for business logic processing and also HSMs are much faster at crypto processing than a normal CPU.
-  * Strong key generation
-    *  computer is a finite state machine, since it is not capable of generating truly random values
-    * But when it comes to HSMs, it uses a special physical processes to generate truly random keys which makes generated keys strong
-    * So keys generated using software are inherently weaker than those generated using HSMs.
-  * Can meet current standards and regulations on cyber security
-    * FIPS 140-2 is an internationally recognized standard for hardware cryptographic devices which defines the level of security provided by them
-    * There are four security levels defined in FIPS 140–2 and almost every HSM in the market is standardized under those levels
-    * So integrating HSMs to a system makes it easier to get compliance with current security regulations.
+    ![alt text](img/hsm_layers.png)
+    ![alt text](img/pkcs11_communication.png)
+    * Java Cryptography Architecture (JCA) and Java Cryptography Extension (JCE)
+        * set of programming interfaces for performing cryptographic operations
+        * provider-based
+            * actual operation is performed in the configured provider which implements that interface
+        * tries to abstract the actual crypto implementation from the algorithm requested
+            * example
+                * using Cipher.getInstance(“AES”), and not have to hard code the actual implementation
+                    * different implementations can be swapped out depending on deployment requirements.
+        * heart of the JCA architecture: Provider abstract class
+            * specific provider will register different algorithm implementations where each implementation
+            implements a specific *SPI (service provider interface) abstract class depending on which
+            algorithm it’s implementing
+                * example:
+    * Sun PKCS#11: bridge between the JCA, JCE APIs and the native PKCS#11 module
+        * native module: a shared-object library provided by the vendor of the HSM device
+            * .so file on Solaris and Linux
+            * or dynamic-link library (.dll on Windows)
+* multiple HSMs are handled by the PKCS #11 API
+    ![alt text](img/hsm_multiple_slots.png)
+    * PKCS #11 API is designed integrating load balancing techniques so that cryptographic operations are fairly
+    distributed over set of HSMs connected to the application.
 
 ## softhsm
 * SoftHSM isn’t exactly an HSM per se, but a software implementation of a generic PKCS#11 device
