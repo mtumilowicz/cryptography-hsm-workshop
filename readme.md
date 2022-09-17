@@ -9,7 +9,9 @@
   * https://medium.com/@mevan.karu/standard-api-for-connecting-hsms-with-client-applications-6296eb187d89
   * http://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/os/pkcs11-base-v2.40-os.html
   * https://docs.oracle.com/en/java/javase/12/security/pkcs11-reference-guide1.html#GUID-6DA72F34-6C6A-4F7D-ADBA-5811576A9331
-
+  * https://thalesdocs.com/gphsm/ptk/5.9/docs/Content/PTK-C_Program/intro_PKCS11.htm
+  * https://medium.com/@mevan.karu/want-to-know-how-to-talk-to-a-hsm-at-code-level-69cb9ba7b392
+  * https://medium.com/@mevan.karu/secure-cryptographic-operations-with-hardware-security-modules-d54734834d7e
 ## pkcs11
 * PKCS = The Public-Key Cryptography Standards
 * cryptographic token interface standard
@@ -78,6 +80,23 @@
     Session is a logical connection between an application and a token. There are two types of sessions defined in PKCS #11 as Read/Write(R/W) and Read-Only(R/O). R/W sessions can be used for both reading and writing data to the cryptographic device while R/O can only be used for data reading purposes from the device.
   * User
     User is a person or an application who has access to the cryptographic device through a slot. There are basically two users defined in PKCS #11 as SO(Security Officer) and USER for each slot. SO has the authority to create a USER. USER is responsible for using device for cryptographic operations. There can be only one SO and USER for a given slot.
+  *  The term slot represents a physical device interface
+    * For example, a smart card reader would represent a slot and the smart card would represent the token.
+  *   * It is also possible that multiple slots may share the same token.
+  * Within PKCS#11, a token is viewed as a device that stores objects and can perform cryptographic functions.
+  * Objects are generally defined in one of four classes:
+
+    >Data objects, which are defined by an application
+
+    >Certificate objects, which are digital certificates such as X.509
+
+    >Key objects, which can be public, private or secret cryptographic keys
+
+    >Vendor-defined objects
+  * Objects within PKCS#11 are further defined as either a token object or a session object
+    * Token objects are visible by any application which has sufficient access permission and is connected to that token. An important attribute of a token object is that it remains on the token until a specific action is performed to remove it.
+    * A connection between a token and an application is referred to as a session. Session objects are temporary and only remain in existence while the session is open. Session objects are only ever visible to the application that created them.
+
 * example
   * Crypto is an application which is using PKCS #11 supported HSM as it’s cryptographic provider. Crypto needs to generate an AES key using HSM and encrypt a sample of data using the generated key.
     * Crypto authenticates itself as user ‘USER’ to the HSM and creates a secure communication passage(ie. session between token and application) between device(ie. token resides within a slot) and Crypto.
@@ -98,6 +117,12 @@
 
     -Djava.security.debug=pkcs11keystore
 * Certain PKCS#11 operations, such as accessing private keys, require a login using a Personal Identification Number, or PIN, before the operations can proceed
+* When accessing the PKCS#11 token as a keystore via the java.security.KeyStore class, you can supply the PIN in the password input parameter to the load method
+  * char[] pin = ...;
+    KeyStore ks = KeyStore.getInstance("PKCS11");
+    ks.load(null, pin);
+* An unextractable key on a secure token (such as a smartcard) is represented by a Java Key object that does not contain the actual key material. The Key object only contains a reference to the actual key.
+  Software Key objects (or any Key object that has access to the actual key material) should implement the interfaces in the java.security.interfaces and javax.crypto.interfaces packages (such as DSAPrivateKey).
 
 ## hsm
 * a physical device that protect and manage digital keys and provides crypto-processing function
@@ -142,86 +167,43 @@
 * Application doesn’t have to bear the burden of handling multiple HSMs because it is handled by the PKCS #11 API. PKCS #11 API is designed integrating load balancing techniques so that cryptographic operations are fairly distributed over set of HSMs connected to the application.
   ![alt text](img/hsm_multiple_slots.png)
 * Multiple applications using multiple HSMs through PKCS #11 API
+* HSM vendors provide the PKCS #11 implementation in C language. Hope you already know it, then here is an obvious question…
+* How to develop a Java application using C module?
+  * So we need a wrapper to map C data structures to Java data structures and vice versa.
+  * Some of famous wrappers are SunPKCS11, IBM PKCS11 and IAIK PKCS11 wrapper
+    * SunPKCS11 doesn’t provide an object oriented mapping of data structures and IBM wrapper isn’t an open source project
+    * http://javadoc.iaik.tugraz.at/pkcs11_wrapper/current/index.html
+
+* A HSM is a trusted, hardened, tamper resistant, dedicated crypto processor designed to perform strengthened cryptographic operations such as encrypting, decrypting, digital signing, digital sign verifying, hashing etc.
+* HSM has a specially designed, well-tested hardware to perform cryptographic operations faster than a normal computer and security-focused OS to secure sensitive data from intruders
+* Normally these modules can be attached to a computer or a network sever externally via a USB port
+* HSM plays a major role in the aspect of system’s security and it can become a single point of failure to the system
+  * Because of that most of the HSM vendors provide capability of using HSM clusters for high availability and load balancing.
+* There are several benefits of using HSMs over software cryptographic providers
+  * Secured key management process
+    * HSMs are good at providing both logical and physical protection.
+    * HSMs keep sensitive materials such as private keys, symmetric keys within the HSM throughout their life cycle without exposing them to outside
+    * Since all key operations are taking place inside the HSM so that only authorized users can use the keys
+    * Also HSMs provide additional security by being tamper resistant which means device become inoperable in case of a tampering
+    * A HSM maintains a log containing all information on operations carried out using keys which makes it easier to determine if any intrusions or misuse of keys have been taken place.
+  * Increase the throughput of the system
+    * Software cryptographic providers utilize server resources for cryptographic operations causing performance degradation in the server
+    * As I mentioned earlier HSMs are designed and optimized to carry out cryptographic operations more efficiently and securely
+    * Integrating a HSM to a system causes increase in the overall performance of the system since, server resources can be utilized for business logic processing and also HSMs are much faster at crypto processing than a normal CPU.
+  * Strong key generation
+    *  computer is a finite state machine, since it is not capable of generating truly random values
+    * But when it comes to HSMs, it uses a special physical processes to generate truly random keys which makes generated keys strong
+    * So keys generated using software are inherently weaker than those generated using HSMs.
+  * Can meet current standards and regulations on cyber security
+    * FIPS 140-2 is an internationally recognized standard for hardware cryptographic devices which defines the level of security provided by them
+    * There are four security levels defined in FIPS 140–2 and almost every HSM in the market is standardized under those levels
+    * So integrating HSMs to a system makes it easier to get compliance with current security regulations.
 
 ## softhsm
 * SoftHSM isn’t exactly an HSM per se, but a software implementation of a generic PKCS#11 device
-* Application Developers
-  * You can login to the keystore using a Personal Identification Number and perform PKCS#11 operations.
-    
-    * The most common type of operations that require login are those that deal with keys on the token
-    * When accessing the PKCS#11 token as a keystore via the java.security.KeyStore class, you can supply the PIN in the password input parameter to the load method
-      * char[] pin = ...;
-        KeyStore ks = KeyStore.getInstance("PKCS11");
-        ks.load(null, pin); 
-      * This is fine for an application that treats PKCS#11 tokens as static keystores.
-        * For an application that wants to accommodate PKCS#11 tokens more dynamically, such as smartcards being inserted and removed, you can use the new KeyStore.Builder class.
-          * KeyStore.CallbackHandlerProtection chp =
-            new KeyStore.CallbackHandlerProtection(new MyGuiCallbackHandler());
-            KeyStore.Builder builder =
-            KeyStore.Builder.newInstance("PKCS11", null, chp);
-  * Depending on the PKCS#11 token, there may be non-key-related operations that also require token login.
-    * Applications that use such operations can use the java.security.AuthProvider class
-    * The AuthProvider class extends from java.security.Provider and defines methods to perform login and logout operations on a provider, as well as to set a callback handler for the provider to use.
-  * Token Keys
-    * Java Key objects may or may not contain actual key material.
-
-A software Key object does contain the actual key material and allows access to that material.
-An unextractable key on a secure token (such as a smartcard) is represented by a Java Key object that does not contain the actual key material. The Key object only contains a reference to the actual key.
-Software Key objects (or any Key object that has access to the actual key material) should implement the interfaces in the java.security.interfaces and javax.crypto.interfaces packages (such as DSAPrivateKey).
-* https://thalesdocs.com/gphsm/ptk/5.9/docs/Content/PTK-C_Program/intro_PKCS11.htm
-  *  The term slot represents a physical device interface
-    * For example, a smart card reader would represent a slot and the smart card would represent the token.
-  * It is also possible that multiple slots may share the same token.
-  * Within PKCS#11, a token is viewed as a device that stores objects and can perform cryptographic functions.
-  * Objects are generally defined in one of four classes:
-
-      >Data objects, which are defined by an application
-      
-      >Certificate objects, which are digital certificates such as X.509
-      
-      >Key objects, which can be public, private or secret cryptographic keys
-      
-      >Vendor-defined objects
-  * Objects within PKCS#11 are further defined as either a token object or a session object
-    * Token objects are visible by any application which has sufficient access permission and is connected to that token. An important attribute of a token object is that it remains on the token until a specific action is performed to remove it.
-    * A connection between a token and an application is referred to as a session. Session objects are temporary and only remain in existence while the session is open. Session objects are only ever visible to the application that created them.
-* https://medium.com/@mevan.karu/want-to-know-how-to-talk-to-a-hsm-at-code-level-69cb9ba7b392
-  * HSM vendors provide the PKCS #11 implementation in C language. Hope you already know it, then here is an obvious question…
-  * How to develop a Java application using C module?
-    * So we need a wrapper to map C data structures to Java data structures and vice versa.
-    * Some of famous wrappers are SunPKCS11, IBM PKCS11 and IAIK PKCS11 wrapper
-      * SunPKCS11 doesn’t provide an object oriented mapping of data structures and IBM wrapper isn’t an open source project
-    * http://javadoc.iaik.tugraz.at/pkcs11_wrapper/current/index.html
-* https://medium.com/@mevan.karu/secure-cryptographic-operations-with-hardware-security-modules-d54734834d7e
-  * A HSM is a trusted, hardened, tamper resistant, dedicated crypto processor designed to perform strengthened cryptographic operations such as encrypting, decrypting, digital signing, digital sign verifying, hashing etc.
-  * HSM has a specially designed, well-tested hardware to perform cryptographic operations faster than a normal computer and security-focused OS to secure sensitive data from intruders
-  * Normally these modules can be attached to a computer or a network sever externally via a USB port
-  * HSM plays a major role in the aspect of system’s security and it can become a single point of failure to the system
-    * Because of that most of the HSM vendors provide capability of using HSM clusters for high availability and load balancing.
-  * There are several benefits of using HSMs over software cryptographic providers
-    * Secured key management process
-      * HSMs are good at providing both logical and physical protection.
-      * HSMs keep sensitive materials such as private keys, symmetric keys within the HSM throughout their life cycle without exposing them to outside
-      * Since all key operations are taking place inside the HSM so that only authorized users can use the keys
-      * Also HSMs provide additional security by being tamper resistant which means device become inoperable in case of a tampering
-      * A HSM maintains a log containing all information on operations carried out using keys which makes it easier to determine if any intrusions or misuse of keys have been taken place.
-    * Increase the throughput of the system
-      * Software cryptographic providers utilize server resources for cryptographic operations causing performance degradation in the server
-      * As I mentioned earlier HSMs are designed and optimized to carry out cryptographic operations more efficiently and securely
-      * Integrating a HSM to a system causes increase in the overall performance of the system since, server resources can be utilized for business logic processing and also HSMs are much faster at crypto processing than a normal CPU.
-    * Strong key generation
-      *  computer is a finite state machine, since it is not capable of generating truly random values
-      * But when it comes to HSMs, it uses a special physical processes to generate truly random keys which makes generated keys strong
-      * So keys generated using software are inherently weaker than those generated using HSMs.
-    * Can meet current standards and regulations on cyber security
-      * FIPS 140-2 is an internationally recognized standard for hardware cryptographic devices which defines the level of security provided by them
-      * There are four security levels defined in FIPS 140–2 and almost every HSM in the market is standardized under those levels
-      * So integrating HSMs to a system makes it easier to get compliance with current security regulations.
-* attacks
-  * https://www.youtube.com/watch?v=aRjuUPYE-tk
-  * https://www.youtube.com/watch?v=bw0V7dl_zdA
-
 * cmds
   *  softhsm2-util --show-slots
-* https://www.passportalmsp.com/blog/aes-256-encryption-algorithm
-  * The size of the encrypted data remains the same: 128 bits of plaintext yields 128 bits of ciphertext. 
+
+## attacks
+* [Explaining HSMs | Part 3 - Common Attacks](https://www.youtube.com/watch?v=aRjuUPYE-tk)
+* [Explaining HSMs | Part 4 - HSM Fuzzing](https://www.youtube.com/watch?v=bw0V7dl_zdA)
