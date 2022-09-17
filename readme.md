@@ -22,6 +22,9 @@
     * example: RSA keys, X.509 Certificates, DES/Triple DES keys, etc.
     * and all the functions needed to use
       * example: create/generate, modify, and delete those objects
+* PKCS #11 is not an implementation of a API, it is a specification for the implementation of the API
+  * OASIS Open provides only a set of ANSI C header files defining the interface exposed to client application
+  * HSM vendor is responsible for providing concrete implementation of the functionalities specified in PKCS #11
 * applications can address cryptographic devices (tokens)
   * example: smart cards, USB keys, and Hardware Security Modules (HSMs)
   * and can perform cryptographic functions as implemented by these tokens
@@ -33,6 +36,81 @@
 * sun.security.pkcs11.SunPKCS11
   * just a huge wrapper class that via JNI calls into the native module (.so, .dll) that implements 
   the PKCS11 C header files
+* glossary
+  * token
+    * logical view of the underlying cryptographic device
+    * possesses a list of cryptographic functionalities supported by the device
+  * slot
+    * logical access point to the cryptographic device
+      * physical device interface
+      * example: smart card reader would represent a slot and the smart card would represent the token
+    * objects that resides within a given slot is not visible to other slots
+    * multiple slots may share the same token
+      * what application sees is there’s a token inside each slot
+        * example: if there is only one HSM then the token is same for all the slots
+          * application gets the view of multiple independent tokens so HSM can be used by other 
+          applications from different slots concurrently.
+  * session
+    * logical connection between an application and a token
+    * two types
+      * Read/Write
+      * Read-Only
+  * user
+    * is a person or an application who has access to the cryptographic device through a slot
+    * two users
+      * SO(Security Officer)
+        * has the authority to create a USER
+      * USER for each slot
+        * is responsible for using device for cryptographic operations
+      * There can be only one SO and USER for a given slot.
+  * objects
+    * four classes
+      * data objects - defined by an application
+      * certificate objects - digital certificates such as X.509
+      * key objects - public, private or secret cryptographic keys
+      * vendor-defined objects
+    * further defined as either
+      * token object
+        * visible by any application which has sufficient access permission and is connected to that token
+        * important attribute: object remains on the token until a specific action is performed to remove it
+      * session object
+          * temporary and only remain in existence while the session is open
+          * only visible to the application that created them
+
+* example
+  * Crypto is an application which is using PKCS #11 supported HSM as it’s cryptographic provider. Crypto needs to generate an AES key using HSM and encrypt a sample of data using the generated key.
+    * Crypto authenticates itself as user ‘USER’ to the HSM and creates a secure communication passage(ie. session between token and application) between device(ie. token resides within a slot) and Crypto.
+      Crypto asks HSM to generate an AES key through the created communication passage(ie. session).
+      HSM returns the created AES key through the passage.
+      Crypto sends set of data needs to be encrypted with the encryption key through the safe passage.
+      HSM sends back the ciphered data to the application through the communication passage.
+      Crypto close the communication passage.
+* There could be issues with PKCS#11 which requires debugging.
+  * To show debug info about Library, Slots, Token, and Mechanism, add showInfo=true in the SunPKCS11 provider configuration file, which is <java-home>/conf/security/sunpkcs11-solaris.cfg or the configuration file that you specified statically or dynamically as described in SunPKCS11 Configuration.
+  * For additional debugging info, users can start or restart the Java processes with one of the following options:
+
+    For general SunPKCS11 provider debugging info:
+
+    -Djava.security.debug=sunpkcs11
+
+    For PKCS#11 keystore specific debugging info:
+
+    -Djava.security.debug=pkcs11keystore
+* Certain PKCS#11 operations, such as accessing private keys, require a login using a Personal Identification Number, or PIN, before the operations can proceed
+* When accessing the PKCS#11 token as a keystore via the java.security.KeyStore class, you can supply the PIN in the password input parameter to the load method
+  * char[] pin = ...;
+    KeyStore ks = KeyStore.getInstance("PKCS11");
+    ks.load(null, pin);
+* An unextractable key on a secure token (such as a smartcard) is represented by a Java Key object that does not contain the actual key material. The Key object only contains a reference to the actual key.
+  Software Key objects (or any Key object that has access to the actual key material) should implement the interfaces in the java.security.interfaces and javax.crypto.interfaces packages (such as DSAPrivateKey).
+
+
+
+
+
+
+
+
 
 * pkcs#11 configuration file
   * example
@@ -67,8 +145,8 @@
           CKM_RSA_PKCS_KEY_PAIR_GEN
       }
       ```
-    * not specified => mechanisms enabled are those that are supported 
-    by both the SunPKCS11 provider and the PKCS#11 token
+    * not specified => mechanisms enabled are those that are supported
+      by both the SunPKCS11 provider and the PKCS#11 token
   * attributes
     * example
       ```
@@ -99,67 +177,8 @@
         * value can be one of the following:
           * boolean value
           * integer
-          * null = indicating that this attribute should not be specified when creating objects.
+          * null = indicating that this attribute should not be specified when creating objects
 
-* PKCS #11 is not an implementation of a API, it is a specification of the required set of rules and guidelines for the implementation of the API
-* OASIS Open provides only a set of ANSI C header files defining the interface exposed to client application
-* HSM vendor is responsible for providing concrete implementation of the functionalities specified in PKCS #11.
-* Application directly speaks to the PKCS #11 API and API is responsible for calling the PKCS #11 module through C calls.
-  * Then the module speaks to the HSM via native calls
-  * Module hand over the response from HSM to application through C interface implementation.
-* glossary
-  * Token
-    Token is the logical view of the underlying cryptographic device. A token possesses a list of cryptographic functionalities supported by the device.
-  * Slot
-    This is a logical access point to the cryptographic device. Objects that resides within a given slot is not visible to other slots.
-    * there are several slots for a given token. What application sees is there’s a token inside each slot. But if there is only one HSM then the token is same for all the slots. In here application gets the view of multiple independent tokens so this HSM can be used by other applications from different slots concurrently.
-  * Session
-    Session is a logical connection between an application and a token. There are two types of sessions defined in PKCS #11 as Read/Write(R/W) and Read-Only(R/O). R/W sessions can be used for both reading and writing data to the cryptographic device while R/O can only be used for data reading purposes from the device.
-  * User
-    User is a person or an application who has access to the cryptographic device through a slot. There are basically two users defined in PKCS #11 as SO(Security Officer) and USER for each slot. SO has the authority to create a USER. USER is responsible for using device for cryptographic operations. There can be only one SO and USER for a given slot.
-  *  The term slot represents a physical device interface
-    * For example, a smart card reader would represent a slot and the smart card would represent the token.
-  *   * It is also possible that multiple slots may share the same token.
-  * Within PKCS#11, a token is viewed as a device that stores objects and can perform cryptographic functions.
-  * Objects are generally defined in one of four classes:
-
-    >Data objects, which are defined by an application
-
-    >Certificate objects, which are digital certificates such as X.509
-
-    >Key objects, which can be public, private or secret cryptographic keys
-
-    >Vendor-defined objects
-  * Objects within PKCS#11 are further defined as either a token object or a session object
-    * Token objects are visible by any application which has sufficient access permission and is connected to that token. An important attribute of a token object is that it remains on the token until a specific action is performed to remove it.
-    * A connection between a token and an application is referred to as a session. Session objects are temporary and only remain in existence while the session is open. Session objects are only ever visible to the application that created them.
-
-* example
-  * Crypto is an application which is using PKCS #11 supported HSM as it’s cryptographic provider. Crypto needs to generate an AES key using HSM and encrypt a sample of data using the generated key.
-    * Crypto authenticates itself as user ‘USER’ to the HSM and creates a secure communication passage(ie. session between token and application) between device(ie. token resides within a slot) and Crypto.
-      Crypto asks HSM to generate an AES key through the created communication passage(ie. session).
-      HSM returns the created AES key through the passage.
-      Crypto sends set of data needs to be encrypted with the encryption key through the safe passage.
-      HSM sends back the ciphered data to the application through the communication passage.
-      Crypto close the communication passage.
-* There could be issues with PKCS#11 which requires debugging.
-  * To show debug info about Library, Slots, Token, and Mechanism, add showInfo=true in the SunPKCS11 provider configuration file, which is <java-home>/conf/security/sunpkcs11-solaris.cfg or the configuration file that you specified statically or dynamically as described in SunPKCS11 Configuration.
-  * For additional debugging info, users can start or restart the Java processes with one of the following options:
-
-    For general SunPKCS11 provider debugging info:
-
-    -Djava.security.debug=sunpkcs11
-
-    For PKCS#11 keystore specific debugging info:
-
-    -Djava.security.debug=pkcs11keystore
-* Certain PKCS#11 operations, such as accessing private keys, require a login using a Personal Identification Number, or PIN, before the operations can proceed
-* When accessing the PKCS#11 token as a keystore via the java.security.KeyStore class, you can supply the PIN in the password input parameter to the load method
-  * char[] pin = ...;
-    KeyStore ks = KeyStore.getInstance("PKCS11");
-    ks.load(null, pin);
-* An unextractable key on a secure token (such as a smartcard) is represented by a Java Key object that does not contain the actual key material. The Key object only contains a reference to the actual key.
-  Software Key objects (or any Key object that has access to the actual key material) should implement the interfaces in the java.security.interfaces and javax.crypto.interfaces packages (such as DSAPrivateKey).
 
 ## hsm
 * a physical device that protect and manage digital keys and provides crypto-processing function
