@@ -1,107 +1,96 @@
 * references
-  * https://stackoverflow.com/questions/43114733/java-complains-on-loading-pkcs-dll-from-softhsm
-  * https://clydedcruz.medium.com/a-dive-into-softhsm-e4be3e70c7bc
-  * https://www.ibm.com/docs/en/linux-on-systems?topic=introduction-what-is-pkcs-11
-  * https://www.securew2.com/blog/what-is-pkcs11
-  * https://blog.devgenius.io/what-is-hardware-security-module-a-brief-explanation-6ac448f2cfa9
-  * https://clydedcruz.medium.com/a-dive-into-softhsm-e4be3e70c7bc
-  * https://medium.com/@gerritjvv/java-cryptography-api-and-keystorage-88bd350ec1b7
-  * https://medium.com/@mevan.karu/standard-api-for-connecting-hsms-with-client-applications-6296eb187d89
-  * http://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/os/pkcs11-base-v2.40-os.html
-  * https://docs.oracle.com/en/java/javase/12/security/pkcs11-reference-guide1.html#GUID-6DA72F34-6C6A-4F7D-ADBA-5811576A9331
-  * https://thalesdocs.com/gphsm/ptk/5.9/docs/Content/PTK-C_Program/intro_PKCS11.htm
-  * https://medium.com/@mevan.karu/want-to-know-how-to-talk-to-a-hsm-at-code-level-69cb9ba7b392
-  * https://medium.com/@mevan.karu/secure-cryptographic-operations-with-hardware-security-modules-d54734834d7e
+    * https://stackoverflow.com/questions/43114733/java-complains-on-loading-pkcs-dll-from-softhsm
+    * https://clydedcruz.medium.com/a-dive-into-softhsm-e4be3e70c7bc
+    * https://www.ibm.com/docs/en/linux-on-systems?topic=introduction-what-is-pkcs-11
+    * https://www.securew2.com/blog/what-is-pkcs11
+    * https://blog.devgenius.io/what-is-hardware-security-module-a-brief-explanation-6ac448f2cfa9
+    * https://clydedcruz.medium.com/a-dive-into-softhsm-e4be3e70c7bc
+    * https://medium.com/@gerritjvv/java-cryptography-api-and-keystorage-88bd350ec1b7
+    * https://medium.com/@mevan.karu/standard-api-for-connecting-hsms-with-client-applications-6296eb187d89
+    * http://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/os/pkcs11-base-v2.40-os.html
+    * https://docs.oracle.com/en/java/javase/12/security/pkcs11-reference-guide1.html#GUID-6DA72F34-6C6A-4F7D-ADBA-5811576A9331
+    * https://thalesdocs.com/gphsm/ptk/5.9/docs/Content/PTK-C_Program/intro_PKCS11.htm
+    * https://medium.com/@mevan.karu/want-to-know-how-to-talk-to-a-hsm-at-code-level-69cb9ba7b392
+    * https://medium.com/@mevan.karu/secure-cryptographic-operations-with-hardware-security-modules-d54734834d7e
 
 ## pkcs11
 * PKCS = The Public-Key Cryptography Standards
-  * specified by OASIS Open which is a global nonprofit organization
-    * works on the development, convergence, and adoption of open standards for security, IoT, energy, 
+    * specified by OASIS Open which is a global nonprofit organization
+    * works on the development, convergence, and adoption of open standards for security, IoT, energy,
     content technologies, emergency management, and other areas
 * specifies an API, called Cryptographic APIs (Cryptoki)
-  * defines the most commonly used cryptographic object types
-    * example: RSA keys, X.509 Certificates, DES/Triple DES keys, etc.
-    * and all the functions needed to use
-      * example: create/generate, modify, and delete those objects
+    * defines the most commonly used cryptographic object types
+        * example: RSA keys, X.509 Certificates, DES/Triple DES keys, etc.
+        * and all the functions needed to use
+            * example: create/generate, modify, and delete those objects
 * PKCS #11 is not an implementation of a API, it is a specification for the implementation of the API
-  * OASIS Open provides only a set of ANSI C header files defining the interface exposed to client application
-  * HSM vendor is responsible for providing concrete implementation of the functionalities specified in PKCS #11
+    * OASIS Open provides only a set of ANSI C header files defining the interface exposed to client application
+    * HSM vendor is responsible for providing concrete implementation of the functionalities specified in PKCS #11
 * applications can address cryptographic devices (tokens)
-  * example: smart cards, USB keys, and Hardware Security Modules (HSMs)
-  * and can perform cryptographic functions as implemented by these tokens
-    * example: create or delete cryptographic data like public-private key pairs
+    * example: smart cards, USB keys, and Hardware Security Modules (HSMs)
+    * and can perform cryptographic functions as implemented by these tokens
+        * example: create or delete cryptographic data like public-private key pairs
 * comes with a series of C header files 
-  * (pkcs11.h, pkcs11f.h and pkcs11t.h)
-  * which different hardware providers provide implementations for
-  * Java has to provide a JCA wrapper for it via JNI (sun.security.pkcs11.SunPKCS11)
+    * (pkcs11.h, pkcs11f.h and pkcs11t.h)
+    * which different hardware providers provide implementations for
+    * Java has to provide a JCA wrapper for it via JNI (sun.security.pkcs11.SunPKCS11)
+        * example:
 * sun.security.pkcs11.SunPKCS11
-  * just a huge wrapper class that via JNI calls into the native module (.so, .dll) that implements 
-  the PKCS11 C header files
+    * just a huge wrapper class that via JNI calls into the native module (.so, .dll) that implements
+    the PKCS11 C header files
 * glossary
-  * token
-    * logical view of the underlying cryptographic device
-    * possesses a list of cryptographic functionalities supported by the device
-  * slot
-    * logical access point to the cryptographic device
-      * physical device interface
-      * example: smart card reader would represent a slot and the smart card would represent the token
-    * objects that resides within a given slot is not visible to other slots
-    * multiple slots may share the same token
-      * what application sees is there’s a token inside each slot
-        * example: if there is only one HSM then the token is same for all the slots
-          * application gets the view of multiple independent tokens so HSM can be used by other 
-          applications from different slots concurrently.
-  * session
-    * logical connection between an application and a token
-    * two types
-      * Read/Write
-      * Read-Only
-  * user
-    * is a person or an application who has access to the cryptographic device through a slot
-    * two users
-      * SO(Security Officer)
-        * has the authority to create a USER
-      * USER for each slot
-        * is responsible for using device for cryptographic operations
-      * There can be only one SO and USER for a given slot.
-  * objects
-    * four classes
-      * data objects - defined by an application
-      * certificate objects - digital certificates such as X.509
-      * key objects - public, private or secret cryptographic keys
-      * vendor-defined objects
-    * further defined as either
-      * token object
-        * visible by any application which has sufficient access permission and is connected to that token
-        * important attribute: object remains on the token until a specific action is performed to remove it
-      * session object
-          * temporary and only remain in existence while the session is open
-          * only visible to the application that created them
+    * token
+        * logical view of the underlying cryptographic device
+        * possesses a list of cryptographic functionalities supported by the device
+    * slot
+        * logical access point to the cryptographic device
+            * physical device interface
+            * example: smart card reader would represent a slot and the smart card would represent the token
+        * objects that resides within a given slot is not visible to other slots
+        * multiple slots may share the same token
+            * what application sees is there’s a token inside each slot
+                * example: if there is only one HSM then the token is same for all the slots
+                    * application gets the view of multiple independent tokens so HSM can be used by other
+                    applications from different slots concurrently.
+    * session
+        * logical connection between an application and a token
+        * two types
+            * Read/Write
+            * Read-Only
+    * user
+        * is a person or an application who has access to the cryptographic device through a slot
+        * two users
+            * SO(Security Officer)
+                * has the authority to create a USER
+            * USER for each slot
+                * is responsible for using device for cryptographic operations
+            * there can be only one SO and USER for a given slot
+       * certain PKCS#11 operations, such as accessing private keys, require a login using PIN
+    * objects
+        * four classes
+            * data objects - defined by an application
+            * certificate objects - digital certificates such as X.509
+            * key objects - public, private or secret cryptographic keys
+                * digression
+                    * unextractable key on a secure token is represented by a Java Key object that does not
+                    contain the actual key material
+                        * Key object only contains a reference to the actual key
+            * vendor-defined objects
+        * further defined as either
+            * token object
+                * visible by any application which has sufficient access permission and is connected to that token
+                * important attribute: object remains on the token until a specific action is performed to remove it
+            * session object
+                * temporary and only remain in existence while the session is open
+                * only visible to the application that created them
 * debugging
-  * adding showInfo=true in the SunPKCS11 provider configuration file
-    * show debug info about Library, Slots, Token, and Mechanism
-  * restart the Java processes with one of the following options
-    * -Djava.security.debug=sunpkcs11
-      * general SunPKCS11 provider debugging info
-    * -Djava.security.debug=pkcs11keystore
-      * For PKCS#11 keystore specific debugging info
-* 
-* Certain PKCS#11 operations, such as accessing private keys, require a login using a Personal Identification Number, or PIN, before the operations can proceed
-* When accessing the PKCS#11 token as a keystore via the java.security.KeyStore class, you can supply the PIN in the password input parameter to the load method
-  * char[] pin = ...;
-    KeyStore ks = KeyStore.getInstance("PKCS11");
-    ks.load(null, pin);
-* An unextractable key on a secure token (such as a smartcard) is represented by a Java Key object that does not contain the actual key material. The Key object only contains a reference to the actual key.
-  Software Key objects (or any Key object that has access to the actual key material) should implement the interfaces in the java.security.interfaces and javax.crypto.interfaces packages (such as DSAPrivateKey).
-
-
-
-
-
-
-
-
-
+    * adding showInfo=true in the SunPKCS11 provider configuration file
+        * show debug info about Library, Slots, Token, and Mechanism
+    * restart the Java processes with one of the following options
+        * -Djava.security.debug=sunpkcs11
+            * general SunPKCS11 provider debugging info
+        * -Djava.security.debug=pkcs11keystore
+            * For PKCS#11 keystore specific debugging info
 * pkcs#11 configuration file
   * example
     ```
@@ -168,7 +157,6 @@
           * boolean value
           * integer
           * null = indicating that this attribute should not be specified when creating objects
-
 
 ## hsm
 * example
