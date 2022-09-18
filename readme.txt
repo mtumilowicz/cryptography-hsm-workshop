@@ -244,9 +244,8 @@ and security-focused OS to secure sensitive data from intruders
                 * using Cipher.getInstance(“AES”), and not have to hard code the actual implementation
                     * different implementations can be swapped out depending on deployment requirements.
         * heart of the JCA architecture: Provider abstract class
-            * specific provider will register different algorithm implementations where each implementation
-            implements a specific *SPI (service provider interface) abstract class depending on which
-            algorithm it’s implementing
+            * specific provider will register different algorithm implementations
+            * each implementation implements a specific *SPI (service provider interface) abstract class
                 * example: KeyStoreSpi, KeyPairGenerationSpi, SignatureSpi
     * Sun PKCS#11: bridge between the JCA, JCE APIs and the native PKCS#11 module
         * native module: a shared-object library provided by the vendor of the HSM device
