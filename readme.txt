@@ -1,3 +1,4 @@
+# cryptography-hsm-workshop
 * references
     * https://stackoverflow.com/questions/43114733/java-complains-on-loading-pkcs-dll-from-softhsm
     * https://clydedcruz.medium.com/a-dive-into-softhsm-e4be3e70c7bc
@@ -17,6 +18,12 @@
     * https://www.mankier.com/1/softhsm2-util
     * [Explaining HSMs | Part 3 - Common Attacks](https://www.youtube.com/watch?v=aRjuUPYE-tk)
     * https://medium.com/coinmonks/securing-keys-with-hsms-hardware-secure-module-d4015a9bdc5
+
+## preface
+* goals of this workshop
+    * understanding pkcs11
+    * introduction to hsm
+    * showing some basic attacks
 
 ## pkcs11
 * PKCS = The Public-Key Cryptography Standards
