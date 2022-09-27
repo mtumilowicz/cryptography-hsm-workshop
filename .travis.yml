@@ -3,4 +3,4 @@ language: scala
 jdk: openjdk13
 
 scala:
-  - 2.13.3
+  - 2.13.8
