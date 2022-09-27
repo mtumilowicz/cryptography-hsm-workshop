@@ -15,6 +15,8 @@
     * http://javadoc.iaik.tugraz.at/pkcs11_wrapper/current/index.html
     * https://www.opendnssec.org/softhsm/
     * https://www.mankier.com/1/softhsm2-util
+    * [Explaining HSMs | Part 3 - Common Attacks](https://www.youtube.com/watch?v=aRjuUPYE-tk)
+    * https://medium.com/coinmonks/securing-keys-with-hsms-hardware-secure-module-d4015a9bdc5
 
 ## pkcs11
 * PKCS = The Public-Key Cryptography Standards
@@ -267,5 +269,23 @@ since a potential user might not be willing to invest in a new hardware device
   * softhsm2-util --import key1.pem --token "mytoken" --label "My key" --id A1B2 --pin 123456
 
 ## attacks
-* [Explaining HSMs | Part 3 - Common Attacks](https://www.youtube.com/watch?v=aRjuUPYE-tk)
-* [Explaining HSMs | Part 4 - HSM Fuzzing](https://www.youtube.com/watch?v=bw0V7dl_zdA)
+* attack based on key wrapping
+    * key wrapping = encrypt one key with another key
+    * key used to encrypt other one (called wrapping key) needs: CKA_WRAP attribute
+    * key to be encrypted needs to be: CKA_EXTRACTABLE attribute
+    * for the attack
+        * you set CKA_DECRYPT for wrapping key
+        * you send back wrapped key to HSM to decrypt it
+* attack on key derivation (unextractable key)
+    * key derivation = extract key from key
+        * CKM_EXTRACT_KEY_FROM_KEY, is a mechanism which provides the capability
+          of creating one secret key from the bits of another secret key
+            * mechanism has a parameter, a CK_EXTRACT_PARAMS, which specifies which
+              bit of the original key should be used as the first bit of the newly-derived key
+    * for the attack
+        * start at the most-significant bit and extract 2 bytes
+        * HMAC a chosen message using the derived key
+        * with brute force uncover the short key by trying all possibilities against known message/HMAC pairs
+        * repeat with derived another short-key at a different offset
+        * this requires a couple of seconds with Luna G5
+* more: https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.1.3442
