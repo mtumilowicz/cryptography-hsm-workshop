@@ -1,3 +1,6 @@
+[![Build Status](https://app.travis-ci.com/mtumilowicz/cryptography-hsm-workshop.svg?branch=master)](https://app.travis-ci.com/mtumilowicz/cryptography-hsm-workshop)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 # cryptography-hsm-workshop
 * references
     * https://stackoverflow.com/questions/43114733/java-complains-on-loading-pkcs-dll-from-softhsm
